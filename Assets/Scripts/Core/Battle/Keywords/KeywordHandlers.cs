@@ -11,10 +11,11 @@ namespace SlotBattle.Core.Battle.Keywords
         public const string Air = "air";
         /// <summary>대공: 공중 유닛을 공격할 수 있다.</summary>
         public const string AntiAir = "antiAir";
-        /// <summary>범위: 맞은 지점 반경 splashRadius 안의 적도 같은 피해를 받는다.</summary>
+        /// <summary>
+        /// 범위: 근접 계열 공격이 맞은 지점 반경 splashRadius 안의 적에게도 같은 피해를 준다.
+        /// 곡사탄과 자폭은 공격 방식(attackType) 자체가 범위 피해라 이 키워드를 쓰지 않는다.
+        /// </summary>
         public const string Splash = "splash";
-        /// <summary>자폭: 공격 대신 자기 위치 반경 splashRadius에 폭발하고 파괴된다.</summary>
-        public const string SelfDestruct = "selfDestruct";
         /// <summary>물량: 한 묶음이 swarmCount기로 나온다.</summary>
         public const string Swarm = "swarm";
     }
@@ -27,7 +28,6 @@ namespace SlotBattle.Core.Battle.Keywords
         public Castle EnemyCastle;
         public bool HitsCastle;
         public float ImpactY;
-        public bool SelfDestroy;
         public bool IsExplosion;
         public float ExplosionRadius;
 
@@ -38,7 +38,6 @@ namespace SlotBattle.Core.Battle.Keywords
             EnemyCastle = enemyCastle;
             HitsCastle = false;
             ImpactY = attacker.Y;
-            SelfDestroy = false;
             IsExplosion = false;
             ExplosionRadius = 0f;
         }
@@ -73,7 +72,7 @@ namespace SlotBattle.Core.Battle.Keywords
             return true;
         }
 
-        /// <summary>공격이 정해진 뒤 맞는 대상을 바꾸거나 더한다.</summary>
+        /// <summary>근접 계열 공격이 정해진 뒤 맞는 대상을 바꾸거나 더한다(탄 공격에는 쓰지 않는다).</summary>
         public virtual void ModifyAttack(BattleSimulation sim, AttackContext ctx)
         {
         }
@@ -103,26 +102,6 @@ namespace SlotBattle.Core.Battle.Keywords
         {
             float radius = ctx.Attacker.Def.SplashRadius;
             sim.CollectEnemiesInRadius(ctx.Attacker, ctx.ImpactY, radius, ctx);
-            ctx.IsExplosion = true;
-            ctx.ExplosionRadius = radius;
-        }
-    }
-
-    internal sealed class SelfDestructHandler : KeywordHandler
-    {
-        public override string Keyword => KeywordNames.SelfDestruct;
-
-        public override void ModifyAttack(BattleSimulation sim, AttackContext ctx)
-        {
-            Unit attacker = ctx.Attacker;
-            float radius = attacker.Def.SplashRadius;
-            ctx.ImpactY = attacker.Y;
-            sim.CollectEnemiesInRadius(attacker, ctx.ImpactY, radius, ctx);
-            if (Math.Abs(ctx.EnemyCastle.Y - attacker.Y) <= radius)
-            {
-                ctx.HitsCastle = true;
-            }
-            ctx.SelfDestroy = true;
             ctx.IsExplosion = true;
             ctx.ExplosionRadius = radius;
         }
@@ -166,7 +145,6 @@ namespace SlotBattle.Core.Battle.Keywords
                 new AirHandler(),
                 new AntiAirHandler(),
                 new SplashHandler(),
-                new SelfDestructHandler(),
                 new SwarmHandler(),
             };
             var map = new Dictionary<string, KeywordHandler>();

@@ -31,7 +31,7 @@ namespace SlotBattle.Core.Tests
             var sim = TestHelper.NewSim();
             sim.EnemyCastle.Hp = 10f;
             TestHelper.Spawn(sim, "shooter", Side.Player, 0, 17f);
-            sim.Tick();
+            TestHelper.TickAndLand(sim);
             Assert.IsTrue(sim.IsOver);
             Assert.AreEqual(BattleOutcome.Win, sim.Outcome);
             Assert.AreEqual(1, sim.DrainEvents().OfType<BattleEndedEvent>().Count());
@@ -53,7 +53,7 @@ namespace SlotBattle.Core.Tests
             var sim = TestHelper.NewSim();
             sim.EnemyCastle.Hp = 10f;
             TestHelper.Spawn(sim, "shooter", Side.Player, 0, 17f);
-            sim.Tick();
+            TestHelper.TickAndLand(sim);
             int tick = sim.CurrentTick;
             sim.Tick();
             Assert.AreEqual(tick, sim.CurrentTick);
@@ -98,7 +98,7 @@ namespace SlotBattle.Core.Tests
             sim.EnemyCastle.Hp = 10f;
             TestHelper.Spawn(sim, "shooter", Side.Player, 0, 17f);
             TestHelper.Spawn(sim, "shooter", Side.Enemy, 1, 3f);
-            sim.Tick();
+            TestHelper.TickAndLand(sim);
             Assert.AreEqual(BattleOutcome.Draw, sim.Outcome);
         }
 

@@ -2,6 +2,23 @@ using System.Collections.Generic;
 
 namespace SlotBattle.Core.Data
 {
+    /// <summary>공격 방식(units.json의 attackType). 설계서 2장 "공격 방식과 탄".</summary>
+    public enum AttackType
+    {
+        /// <summary>지정하지 않음. 데이터 검증에서 거른다.</summary>
+        None,
+        /// <summary>근접: 공격한 틱에 피해.</summary>
+        Melee,
+        /// <summary>직사탄: 대상을 따라가 도착할 때 피해. 대상이 먼저 죽으면 사라진다.</summary>
+        Bolt,
+        /// <summary>곡사탄: 쏠 때의 대상 위치에 떨어져 반경 안 적에게 피해.</summary>
+        Lob,
+        /// <summary>자폭: 자기 위치 반경 안에 그 틱에 피해를 주고 파괴된다.</summary>
+        Explode,
+        /// <summary>돌진: 규칙은 근접과 같고 연출만 다르다.</summary>
+        Charge,
+    }
+
     /// <summary>units.json의 유닛 한 종. 1단계 기준 수치.</summary>
     public sealed class UnitDef
     {
@@ -11,17 +28,25 @@ namespace SlotBattle.Core.Data
         public float Hp;
         public float Attack;
         public float AttackInterval;
-        /// <summary>true면 사거리로 battle.json의 meleeRange를 쓴다.</summary>
-        public bool Melee;
+        public AttackType AttackType;
+        /// <summary>원거리 사거리. 근접 계열(근접, 돌진, 자폭)은 battle.json의 meleeRange를 쓴다.</summary>
         public float Range;
+        /// <summary>직사탄과 곡사탄의 초당 이동 거리.</summary>
+        public float ProjectileSpeed;
         public float MoveSpeed;
         public List<string> Keywords = new List<string>();
-        /// <summary>splash, selfDestruct 키워드가 쓰는 반경.</summary>
+        /// <summary>폭발 반경: 곡사탄, 자폭, splash 키워드가 쓴다.</summary>
         public float SplashRadius;
         /// <summary>swarm 키워드가 쓰는 한 묶음의 기체 수.</summary>
         public int SwarmCount;
         /// <summary>1이면 1차 출시, 2 이상은 업데이트 번호.</summary>
         public int Release = 1;
+
+        /// <summary>근접 계열(근접, 돌진, 자폭)이라 사거리로 meleeRange를 쓰는가.</summary>
+        public bool Melee => AttackType == AttackType.Melee || AttackType == AttackType.Charge || AttackType == AttackType.Explode;
+
+        /// <summary>탄을 쏘는 공격인가.</summary>
+        public bool FiresProjectile => AttackType == AttackType.Bolt || AttackType == AttackType.Lob;
 
         public bool HasKeyword(string keyword)
         {
@@ -59,6 +84,8 @@ namespace SlotBattle.Core.Data
         public float AttackInterval = 1f;
         /// <summary>성에서의 거리.</summary>
         public float Range;
+        /// <summary>포탄(직사탄)의 초당 이동 거리.</summary>
+        public float ProjectileSpeed;
     }
 
     public sealed class BattleConfig

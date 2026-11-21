@@ -23,7 +23,8 @@
   "castleDefense": {
     "damage": 30,
     "attackInterval": 1.0,
-    "range": 3.4
+    "range": 3.4,
+    "projectileSpeed": 10
   },
   "unitHpScale": 2.5,
   "unitAttackScale": 2.5
