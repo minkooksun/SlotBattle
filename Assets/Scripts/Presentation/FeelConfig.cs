@@ -68,6 +68,9 @@ namespace SlotBattle.Presentation
         public float HitStop = 0.04f;
         public float DamageNumberRise = 28f;
         public float DamageNumberTime = 0.6f;
+        /// <summary>성 포격 포탄이 날아가는 시간과 크기.</summary>
+        public float CastleShellTime = 0.22f;
+        public float CastleShellSize = 10f;
     }
 
     public sealed class ShakeFeel
@@ -91,7 +94,7 @@ namespace SlotBattle.Presentation
 
     public sealed class UnitFeel
     {
-        public float[] SizeByTier = { 22f, 30f, 42f };
+        public float[] SizeByTier = { 33f, 45f, 63f };
         public float[] GlowByTier = { 0f, 0.35f, 0.8f };
         public float DragScale = 1.2f;
         public float LandingTime = 0.25f;

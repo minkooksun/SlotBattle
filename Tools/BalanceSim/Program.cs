@@ -92,6 +92,8 @@ namespace SlotBattle.Tools.BalanceSim
             public double TotalSeconds;
             public int Games;
             public int Timeouts;
+            public long PlayerUnits;
+            public long EnemyUnits;
 
             public double WinRate => Games == 0 ? 0 : (double)Wins / Games;
             public double AverageSeconds => Games == 0 ? 0 : TotalSeconds / Games;
@@ -103,10 +105,12 @@ namespace SlotBattle.Tools.BalanceSim
             var outcomes = new BattleOutcome[games];
             var lengths = new double[games];
             var timeouts = new bool[games];
+            var playerUnits = new int[games];
+            var enemyUnits = new int[games];
             Parallel.For(0, games, i =>
             {
                 ulong seed = baseSeed + (ulong)i;
-                var sim = BattleRunner.Run(data, stage, deck, seed, factory(seed));
+                var sim = BattleRunner.Run(data, stage, deck, seed, factory(seed), out playerUnits[i], out enemyUnits[i]);
                 outcomes[i] = sim.Outcome;
                 lengths[i] = sim.ElapsedSeconds;
                 timeouts[i] = sim.EndedByTimeout;
@@ -115,6 +119,8 @@ namespace SlotBattle.Tools.BalanceSim
             for (int i = 0; i < games; i++)
             {
                 summary.TotalSeconds += lengths[i];
+                summary.PlayerUnits += playerUnits[i];
+                summary.EnemyUnits += enemyUnits[i];
                 if (timeouts[i])
                 {
                     summary.Timeouts++;
@@ -139,7 +145,7 @@ namespace SlotBattle.Tools.BalanceSim
         {
             return title + "| " + player.PadRight(6) + " | " + Percent(s.WinRate).PadLeft(7) + " | " +
                 Seconds(s.AverageSeconds).PadLeft(9) + " | " + Percent(s.TimeoutRate).PadLeft(9) + " | " +
-                s.Wins + "/" + s.Losses + "/" + s.Draws;
+                s.Wins + "/" + s.Losses + "/" + s.Draws + "  | 판당 유닛 내 " + (s.PlayerUnits / (double)s.Games).ToString("0") + " · 적 " + (s.EnemyUnits / (double)s.Games).ToString("0");
         }
 
         private static string Percent(double rate)

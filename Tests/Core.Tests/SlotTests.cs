@@ -103,12 +103,12 @@ namespace SlotBattle.Core.Tests
         // ── 스핀 ──
 
         [Test]
-        public void 스핀은_마나_3을_쓴다()
+        public void 스핀은_설정된_마나를_쓴다()
         {
             var sim = TestHelper.NewSim();
-            Assert.AreEqual(5, sim.Mana);
+            sim.SetManaForTest(10);
             Assert.AreEqual(CommandResult.Ok, sim.Execute(new SpinCommand()));
-            Assert.AreEqual(2, sim.Mana);
+            Assert.AreEqual(10 - TestHelper.SpinCost, sim.Mana);
             Assert.IsNotNull(sim.PendingSpin);
             Assert.AreEqual(3, sim.PendingSpin.Symbols.Count);
         }
@@ -136,6 +136,7 @@ namespace SlotBattle.Core.Tests
         public void 스핀하면_릴_정지_사건이_칸마다_나온다()
         {
             var sim = TestHelper.NewSim();
+            sim.SetManaForTest(10);
             sim.Execute(new SpinCommand());
             var stops = sim.DrainEvents().OfType<ReelStoppedEvent>().ToList();
             CollectionAssert.AreEqual(new[] { 0, 1, 2 }, stops.Select(e => e.ReelIndex));
@@ -147,6 +148,7 @@ namespace SlotBattle.Core.Tests
         {
             ulong seed = TestHelper.FindSeed(TestHelper.Triple);
             var sim = TestHelper.NewSim(seed: seed);
+            sim.SetManaForTest(10);
             sim.Execute(new SpinCommand());
             Assert.IsTrue(sim.PendingSpin.IsJackpot);
             Assert.AreEqual(1, sim.DrainEvents().OfType<JackpotEvent>().Count());
@@ -162,6 +164,7 @@ namespace SlotBattle.Core.Tests
         {
             ulong seed = TestHelper.FindSeed(TestHelper.AllDifferent);
             var sim = TestHelper.NewSim(seed: seed);
+            sim.SetManaForTest(10);
             sim.Execute(new SpinCommand());
             var symbols = sim.PendingSpin.Symbols.ToArray();
             Assert.AreEqual(CommandResult.Ok, sim.Execute(new ConfirmSpinCommand()));
@@ -180,6 +183,7 @@ namespace SlotBattle.Core.Tests
         {
             ulong seed = TestHelper.FindSeed(TestHelper.ExactlyPair);
             var sim = TestHelper.NewSim(seed: seed);
+            sim.SetManaForTest(10);
             sim.Execute(new SpinCommand());
             sim.Execute(new ConfirmSpinCommand());
             CollectionAssert.AreEquivalent(new[] { 1, 2 }, sim.Queue.Select(q => q.Tier));
@@ -205,6 +209,7 @@ namespace SlotBattle.Core.Tests
         {
             ulong seed = TestHelper.FindSeed(TestHelper.AllDifferent);
             var sim = TestHelper.NewSim(seed: seed);
+            sim.SetManaForTest(10);
             sim.AddToQueueForTest("blade", 1);
             sim.AddToQueueForTest("blade", 1);
             sim.Execute(new SpinCommand());
@@ -233,7 +238,7 @@ namespace SlotBattle.Core.Tests
             int locked = sim.PendingSpin.Symbols[1];
             sim.DrainEvents();
             Assert.AreEqual(CommandResult.Ok, sim.Execute(new RespinCommand(1)));
-            Assert.AreEqual(6, sim.Mana);
+            Assert.AreEqual(10 - TestHelper.SpinCost - 1, sim.Mana);
             Assert.AreEqual(locked, sim.PendingSpin.Symbols[1]);
             var stops = sim.DrainEvents().OfType<ReelStoppedEvent>().ToList();
             CollectionAssert.AreEqual(new[] { 0, 2 }, stops.Select(e => e.ReelIndex));
@@ -253,6 +258,7 @@ namespace SlotBattle.Core.Tests
             {
                 sim.Execute(new PlaceUnitCommand(0, 0, 0f));
             }
+            sim.SetManaForTest(10);
             sim.Execute(new SpinCommand());
             Assert.AreEqual(CommandResult.Ok, sim.Execute(new RespinCommand(2)), "새 스핀에서는 다시 할 수 있다");
         }
@@ -266,7 +272,7 @@ namespace SlotBattle.Core.Tests
             Assert.AreEqual(CommandResult.InvalidLock, sim.Execute(new RespinCommand()));
             Assert.AreEqual(CommandResult.InvalidLock, sim.Execute(new RespinCommand(0, 1)));
             Assert.AreEqual(CommandResult.InvalidLock, sim.Execute(new RespinCommand(3)));
-            Assert.AreEqual(7, sim.Mana, "실패한 요청은 마나를 쓰지 않는다");
+            Assert.AreEqual(10 - TestHelper.SpinCost, sim.Mana, "실패한 요청은 마나를 쓰지 않는다");
         }
 
         [Test]
@@ -274,7 +280,7 @@ namespace SlotBattle.Core.Tests
         {
             var sim = TestHelper.NewSim();
             Assert.AreEqual(CommandResult.NoPendingSpin, sim.Execute(new RespinCommand(0)));
-            sim.SetManaForTest(3);
+            sim.SetManaForTest(TestHelper.SpinCost);
             sim.Execute(new SpinCommand());
             Assert.AreEqual(CommandResult.NotEnoughMana, sim.Execute(new RespinCommand(0)));
         }
@@ -286,6 +292,8 @@ namespace SlotBattle.Core.Tests
             for (ulong seed = 1; seed < 100000; seed++)
             {
                 var sim = TestHelper.NewSim(seed: seed);
+                sim.SetManaForTest(10);
+            sim.SetManaForTest(10);
                 sim.Execute(new SpinCommand());
                 var s = sim.PendingSpin.Symbols.ToArray();
                 if (!TestHelper.ExactlyPair(s))

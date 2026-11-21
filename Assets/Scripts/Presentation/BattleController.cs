@@ -122,6 +122,12 @@ namespace SlotBattle.Presentation
             _settings.RestartButton.OnClick = Restart;
             _settings.HapticsButton.OnClick = ToggleHaptics;
             _settings.ShakeButton.OnClick = ToggleShake;
+            var stageIds = new List<int>();
+            foreach (var stage in data.Stages)
+            {
+                stageIds.Add(stage.Id);
+            }
+            _settings.BuildStageButtons(stageIds, SelectStage);
 
             Restart();
         }
@@ -291,7 +297,7 @@ namespace SlotBattle.Presentation
             }
             if (_settings.IsVisible)
             {
-                _settings.Show(_layout.SafeArea, _haptics.Enabled, _haptics.IsSupported, _field.ShakeEnabled);
+                _settings.Show(_layout.SafeArea, _haptics.Enabled, _haptics.IsSupported, _field.ShakeEnabled, StageId);
             }
         }
 
@@ -719,7 +725,9 @@ namespace SlotBattle.Presentation
             else
             {
                 main.Label.text = "확정";
-                main.SubLabel.text = pending.IsJackpot ? "합체형!" : pending.Summons.Count + "기 대기 칸으로";
+                // 릴이 도는 동안에는 결과를 미리 알려 주지 않는다(기다리는 긴장이 핵심).
+                main.SubLabel.text = _control.Reels.IsAnimating ? "조립 중..."
+                    : (pending.IsJackpot ? "합체형!" : pending.Summons.Count + "기 대기 칸으로");
                 main.SetColor(Ui.Hex("#1FAA74"));
                 main.Interactable = !over;
                 main.Pulse = false;
@@ -780,7 +788,14 @@ namespace SlotBattle.Presentation
             _paused = true;
             CancelDrag();
             SetAiming(false);
-            _settings.Show(_layout.SafeArea, _haptics.Enabled, _haptics.IsSupported, _field.ShakeEnabled);
+            _settings.Show(_layout.SafeArea, _haptics.Enabled, _haptics.IsSupported, _field.ShakeEnabled, StageId);
+        }
+
+        /// <summary>개발용: 다른 스테이지로 새 판을 시작한다.</summary>
+        public void SelectStage(int stageId)
+        {
+            StageId = stageId;
+            Restart();
         }
 
         private void CloseSettings()

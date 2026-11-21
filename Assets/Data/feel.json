@@ -33,7 +33,9 @@
     "knockbackTime": 0.1,
     "hitStop": 0.04,
     "damageNumberRise": 28,
-    "damageNumberTime": 0.6
+    "damageNumberTime": 0.6,
+    "castleShellTime": 0.22,
+    "castleShellSize": 10
   },
   "shake": {
     "tier3Attack": 6,
@@ -51,7 +53,7 @@
     "castleDebrisCount": 28
   },
   "unit": {
-    "sizeByTier": [22, 30, 42],
+    "sizeByTier": [33, 45, 63],
     "glowByTier": [0, 0.35, 0.8],
     "dragScale": 1.2,
     "landingTime": 0.25,

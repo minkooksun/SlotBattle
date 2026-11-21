@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using SlotBattle.Core.Battle;
 using UnityEngine;
 using UnityEngine.UI;
@@ -152,7 +153,7 @@ namespace SlotBattle.Presentation
             }
             _title.text = title;
             _title.color = color;
-            string reason = sim.EndedByTimeout ? "시간 종료 · 코어 기지 체력 비율로 판정" : "코어 기지 파괴";
+            string reason = "스테이지 " + sim.Stage.Id + " · " + (sim.EndedByTimeout ? "시간 종료, 체력 비율로 판정" : "코어 기지 파괴");
             int seconds = Mathf.RoundToInt(sim.ElapsedSeconds);
             _detail.text = reason + "\n"
                 + "내 기지 " + Mathf.RoundToInt(sim.PlayerCastle.HpRatio * 100f) + "%  ·  적 기지 " + Mathf.RoundToInt(sim.EnemyCastle.HpRatio * 100f) + "%\n"
@@ -163,11 +164,18 @@ namespace SlotBattle.Presentation
         }
     }
 
-    /// <summary>설정: 진동과 화면 흔들림 끄기, 처음부터. (저장은 M4에서 붙인다.)</summary>
+    /// <summary>
+    /// 설정: 진동과 화면 흔들림 끄기, 개발용 스테이지 선택, 처음부터.
+    /// (저장과 정식 스테이지 선택 화면은 M4에서 붙인다.)
+    /// </summary>
     public sealed class SettingsPanel : OverlayPanel
     {
+        private readonly FeelConfig _feel;
+        private PressableButton[] _stageButtons = new PressableButton[0];
+
         public SettingsPanel(Transform parent, FeelConfig feel) : base("Settings", parent)
         {
+            _feel = feel;
             Title = Ui.CreateText("Title", Card, "설정", 24, Palette.Text);
             HapticsButton = PressableButton.Create("Haptics", Card, "", Palette.PanelLight, feel.Button, 18);
             ShakeButton = PressableButton.Create("Shake", Card, "", Palette.PanelLight, feel.Button, 18);
@@ -180,13 +188,28 @@ namespace SlotBattle.Presentation
         public PressableButton ShakeButton { get; }
         public PressableButton RestartButton { get; }
         public PressableButton CloseButton { get; }
+        public Text StageTitle { get; private set; }
+        public IReadOnlyList<PressableButton> StageButtons => _stageButtons;
+
+        /// <summary>개발용 스테이지 선택 버튼을 만든다.</summary>
+        public void BuildStageButtons(IReadOnlyList<int> stageIds, Action<int> onSelect)
+        {
+            StageTitle = Ui.CreateText("StageTitle", Card, "스테이지 (개발용)", 14, Palette.TextDim);
+            _stageButtons = new PressableButton[stageIds.Count];
+            for (int i = 0; i < stageIds.Count; i++)
+            {
+                int id = stageIds[i];
+                _stageButtons[i] = PressableButton.Create("Stage" + id, Card, id.ToString(), Palette.PanelLight, _feel.Button, 20);
+                _stageButtons[i].OnClick = () => onSelect(id);
+            }
+        }
 
         protected override Vector2 CardSize(Rect safeArea)
         {
-            return new Vector2(Mathf.Min(300f, safeArea.width - 32f), 330f);
+            return new Vector2(Mathf.Min(300f, safeArea.width - 32f), 420f);
         }
 
-        public void Show(Rect safeArea, bool hapticsOn, bool hapticsSupported, bool shakeOn)
+        public void Show(Rect safeArea, bool hapticsOn, bool hapticsSupported, bool shakeOn, int currentStage)
         {
             base.Show(safeArea);
             var size = Card.sizeDelta;
@@ -194,6 +217,18 @@ namespace SlotBattle.Presentation
             Ui.PlaceCentered(Title.rectTransform, new Vector2(size.x / 2f, size.y - 34f), new Vector2(size.x, 30f));
             Ui.Place((RectTransform)HapticsButton.transform, new Rect(20f, size.y - 128f, w, 52f));
             Ui.Place((RectTransform)ShakeButton.transform, new Rect(20f, size.y - 190f, w, 52f));
+            if (StageTitle != null)
+            {
+                Ui.PlaceCentered(StageTitle.rectTransform, new Vector2(size.x / 2f, size.y - 214f), new Vector2(size.x, 20f));
+                float gap = 10f;
+                float bw = (w - gap * (_stageButtons.Length - 1)) / Mathf.Max(1, _stageButtons.Length);
+                for (int i = 0; i < _stageButtons.Length; i++)
+                {
+                    Ui.Place((RectTransform)_stageButtons[i].transform, new Rect(20f + i * (bw + gap), size.y - 282f, bw, 52f));
+                    bool current = _stageButtons[i].Label.text == currentStage.ToString();
+                    _stageButtons[i].SetColor(current ? Ui.Hex("#2F7BFF") : Palette.PanelLight);
+                }
+            }
             Ui.Place((RectTransform)RestartButton.transform, new Rect(20f, 82f, w, 52f));
             Ui.Place((RectTransform)CloseButton.transform, new Rect(20f, 20f, w, 52f));
             Refresh(hapticsOn, hapticsSupported, shakeOn);

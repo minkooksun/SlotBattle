@@ -113,6 +113,7 @@ namespace SlotBattle.Core.Tests
             // 포격으로 쓰러질 유닛도 그 틱의 공격은 성에 들어간다.
             var sim = TestHelper.NewSim();
             var blade = TestHelper.Spawn(sim, "blade", Side.Enemy, 0, 0.5f);
+            blade.Hp = Damage; // 이번 포격으로 쓰러질 만큼만 남긴다
             sim.Tick();
             Assert.IsFalse(blade.IsAlive);
             Assert.AreEqual(sim.PlayerCastle.MaxHp - 20f, sim.PlayerCastle.Hp);
@@ -143,6 +144,51 @@ namespace SlotBattle.Core.Tests
             sim.Tick();
             Assert.AreEqual(BattleOutcome.Win, sim.Outcome);
             Assert.IsFalse(sim.EndedByTimeout);
+        }
+    }
+}
+
+namespace SlotBattle.Core.Tests
+{
+    /// <summary>설계서 3장: 유닛 능력치 배율(battle.json)은 양쪽 모두에 곱한다.</summary>
+    public class UnitScaleTests
+    {
+        [Test]
+        public void 유닛_능력치_배율은_내_유닛과_적_유닛_모두에_곱한다()
+        {
+            var data = TestHelper.Data;
+            var sim = new SlotBattle.Core.Battle.BattleSimulation(data, TestHelper.EmptyStage(), TestHelper.Deck, 1);
+            var mine = TestHelper.Spawn(sim, "blade", SlotBattle.Core.Battle.Side.Player, 0, 2f);
+            var enemy = TestHelper.Spawn(sim, "blade", SlotBattle.Core.Battle.Side.Enemy, 1, 18f);
+            float hp = 100f * data.Battle.UnitHpScale;
+            float attack = 20f * data.Battle.UnitAttackScale;
+            Assert.AreEqual(hp, mine.MaxHp, 1e-3);
+            Assert.AreEqual(attack, mine.Attack, 1e-3);
+            Assert.AreEqual(hp, enemy.MaxHp, 1e-3, "적 레벨 1.0이면 같다");
+            Assert.AreEqual(attack, enemy.Attack, 1e-3);
+        }
+
+        [Test]
+        public void 배율과_단계와_적_레벨은_서로_곱해진다()
+        {
+            var data = TestHelper.Data;
+            var stage = TestHelper.EmptyStage();
+            stage.EnemyStatMultiplier = 1.2f;
+            var sim = new SlotBattle.Core.Battle.BattleSimulation(data, stage, TestHelper.Deck, 1);
+            var enemy = TestHelper.Spawn(sim, "shield", SlotBattle.Core.Battle.Side.Enemy, 0, 18f, tier: 2);
+            Assert.AreEqual(250f * 2.2f * 1.2f * data.Battle.UnitHpScale, enemy.MaxHp, 0.01f);
+        }
+
+        [Test]
+        public void 성_포격_한_발에_1단계_유닛이_쓰러지지_않는다()
+        {
+            // 설계서 2장: 성 포격은 1단계 유닛도 한 방에 쓰러지지 않을 만큼 약하게 둔다.
+            var data = TestHelper.Data;
+            float shot = data.Battle.CastleDefense.Damage;
+            foreach (var unit in data.Units)
+            {
+                Assert.Greater(unit.Hp * data.Battle.UnitHpScale, shot, unit.Id);
+            }
         }
     }
 }

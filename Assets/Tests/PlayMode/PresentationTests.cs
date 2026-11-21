@@ -249,11 +249,14 @@ namespace SlotBattle.PlayModeTests
         {
             var c = Create(Devices.IPhone15, new NullHapticService());
             yield return null;
+            c.StepForTest(2f); // 스핀 비용만큼 에너지를 모은다
             Assert.IsTrue(c.Sim.CanSpin);
             c.PressMain();
             var pending = c.Sim.PendingSpin;
             Assert.IsNotNull(pending, "스핀 결과는 Core가 먼저 정한다");
             Assert.IsTrue(c.Control.Reels.IsAnimating, "릴이 돈다");
+            c.StepForTest(0.01f);
+            Assert.AreEqual("조립 중...", c.Control.MainButton.SubLabel.text, "도는 동안 결과를 미리 보여 주지 않는다");
             for (int i = 0; i < 90; i++)
             {
                 c.StepForTest(1f / 30f);
@@ -281,7 +284,7 @@ namespace SlotBattle.PlayModeTests
                 int guard = 0;
                 while (c.Sim.Queue.Count < 2 && guard++ < 10)
                 {
-                    c.StepForTest(3.5f);
+                    c.StepForTest(6.5f);
                     c.PressMain();
                     c.PressMain();
                 }
@@ -289,7 +292,7 @@ namespace SlotBattle.PlayModeTests
                 {
                     continue;
                 }
-                c.StepForTest(3.5f);
+                c.StepForTest(6.5f);
                 c.PressMain();
                 var pending = c.Sim.PendingSpin;
                 if (pending == null || pending.Summons.Count <= c.Sim.QueueFreeSlots)
@@ -327,6 +330,21 @@ namespace SlotBattle.PlayModeTests
         }
 
         [UnityTest]
+        public IEnumerator 설정에서_스테이지를_고르면_그_스테이지로_새_판을_시작한다()
+        {
+            var c = Create(Devices.IPhone15, new NullHapticService());
+            Assert.AreEqual(1, c.Sim.Stage.Id);
+            c.Hud.SettingsButton.SimulateClick();
+            Assert.AreEqual(3, c.Settings.StageButtons.Count);
+            c.Settings.StageButtons[1].SimulateClick();
+            yield return null;
+            Assert.AreEqual(2, c.Sim.Stage.Id);
+            Assert.AreEqual(0, c.Sim.CurrentTick, "새 판");
+            Assert.IsFalse(c.Settings.IsVisible);
+            Assert.IsFalse(c.IsPaused);
+        }
+
+        [UnityTest]
         public IEnumerator 아이폰과_아이패드_화면을_캡처한다()
         {
             string dir = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "Builds", "Screenshots"));
@@ -344,7 +362,7 @@ namespace SlotBattle.PlayModeTests
                 // 결과가 있는 조립 라인을 보여 주기 위해 한 번 더 돌린다.
                 if (c.Sim.PendingSpin == null)
                 {
-                    c.StepForTest(3f);
+                    c.StepForTest(6.5f);
                     c.PressMain();
                 }
                 Assert.IsNotNull(c.Sim.PendingSpin, "캡처에 조립 결과가 보이도록 스핀");

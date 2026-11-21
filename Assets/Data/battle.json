@@ -3,7 +3,7 @@
   "laneCount": 2,
   "laneLength": 20,
   "playerZoneLength": 10,
-  "castleHp": 20000,
+  "castleHp": 35000,
   "startMana": 5,
   "maxMana": 10,
   "manaRegenPerSecond": 1,
@@ -16,13 +16,15 @@
   "commanderSkill": {
     "manaCost": 4,
     "radius": 2.0,
-    "damage": 40,
+    "damage": 100,
     "stunSeconds": 2,
     "cooldownSeconds": 30
   },
   "castleDefense": {
-    "damage": 100,
+    "damage": 30,
     "attackInterval": 1.0,
     "range": 3.4
-  }
+  },
+  "unitHpScale": 2.5,
+  "unitAttackScale": 2.5
 }

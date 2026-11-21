@@ -18,12 +18,36 @@ namespace SlotBattle.Tools.BalanceSim
         /// <summary>자동 플레이어로 한 판을 끝까지 돌린다.</summary>
         public static BattleSimulation Run(GameData data, StageDef stage, IReadOnlyList<string> deck, ulong seed, IAutoPlayer player)
         {
-            var sim = new BattleSimulation(data, stage, deck, seed) { EventsEnabled = false };
+            return Run(data, stage, deck, seed, player, out _, out _);
+        }
+
+        /// <summary>한 판을 돌리며 양쪽에 나온 유닛 수(물량 유닛은 기체마다)를 센다.</summary>
+        public static BattleSimulation Run(GameData data, StageDef stage, IReadOnlyList<string> deck, ulong seed, IAutoPlayer player,
+            out int playerUnits, out int enemyUnits)
+        {
+            var sim = new BattleSimulation(data, stage, deck, seed);
+            playerUnits = 0;
+            enemyUnits = 0;
             while (!sim.IsOver)
             {
                 player.Act(sim);
                 sim.Tick();
+                foreach (var e in sim.DrainEvents())
+                {
+                    if (e is UnitSummonedEvent summoned)
+                    {
+                        if (summoned.Unit.Side == Side.Player)
+                        {
+                            playerUnits++;
+                        }
+                        else
+                        {
+                            enemyUnits++;
+                        }
+                    }
+                }
             }
+            sim.DrainEvents();
             return sim;
         }
     }

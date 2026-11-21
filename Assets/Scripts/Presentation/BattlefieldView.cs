@@ -192,6 +192,16 @@ namespace SlotBattle.Presentation
             {
                 return;
             }
+            if (hit.SourceCastle != null)
+            {
+                // 성 포격: 성에서 포탄이 날아가 맞는다(양쪽 성 모두).
+                var target = view.DisplayPosition;
+                var from = new Vector2(target.x, hit.SourceCastle.Side == Side.Enemy ? Size.y - CastleBand * 0.5f : CastleBand * 0.5f);
+                var shellColor = hit.SourceCastle.Side == Side.Enemy ? Palette.Enemy : Palette.Player;
+                float size = _feel.Hit.CastleShellSize;
+                Fx.Fly(Shape.Circle, Color.Lerp(shellColor, Color.white, 0.4f), from, target, size, _feel.Hit.CastleShellTime,
+                    () => Fx.Ring(target, size, size * 4f, Ui.WithAlpha(shellColor, 0.9f), 0.25f));
+            }
             view.OnHit(_feel);
             var color = hit.Target.Side == Side.Player ? Ui.Hex("#FFB4B4") : Color.white;
             if (hit.Attacker == null && hit.SourceCastle == null)

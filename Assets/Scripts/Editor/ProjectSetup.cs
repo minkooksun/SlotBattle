@@ -108,17 +108,52 @@ namespace SlotBattle.EditorTools
         private static void CreateBootstrapScene()
         {
             Directory.CreateDirectory(Path.GetDirectoryName(ScenePath));
+            EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
+            // 이미 올바른 씬이 있으면 그대로 둔다(다시 만들면 내부 ID가 바뀌어 git 변경이 생긴다).
+            if (File.Exists(ScenePath))
+            {
+                var existing = EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
+                foreach (var root in existing.GetRootGameObjects())
+                {
+                    var found = root.GetComponent<GameBootstrap>();
+                    if (found != null && AssignData(found))
+                    {
+                        EditorSceneManager.MarkSceneDirty(existing);
+                        EditorSceneManager.SaveScene(existing);
+                    }
+                    if (found != null)
+                    {
+                        return;
+                    }
+                }
+            }
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             var go = new GameObject("Bootstrap");
-            var bootstrap = go.AddComponent<GameBootstrap>();
-            bootstrap.UnitsJson = LoadText("units.json");
-            bootstrap.SlotJson = LoadText("slot.json");
-            bootstrap.BattleJson = LoadText("battle.json");
-            bootstrap.StagesJson = LoadText("stages.json");
-            bootstrap.FeelJson = LoadText("feel.json");
+            AssignData(go.AddComponent<GameBootstrap>());
             EditorSceneManager.MarkSceneDirty(scene);
             EditorSceneManager.SaveScene(scene, ScenePath);
-            EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
+        }
+
+        /// <summary>JSON 데이터를 연결한다. 바뀐 것이 있으면 true.</summary>
+        private static bool AssignData(GameBootstrap bootstrap)
+        {
+            bool changed = false;
+            changed |= Set(ref bootstrap.UnitsJson, LoadText("units.json"));
+            changed |= Set(ref bootstrap.SlotJson, LoadText("slot.json"));
+            changed |= Set(ref bootstrap.BattleJson, LoadText("battle.json"));
+            changed |= Set(ref bootstrap.StagesJson, LoadText("stages.json"));
+            changed |= Set(ref bootstrap.FeelJson, LoadText("feel.json"));
+            return changed;
+        }
+
+        private static bool Set(ref TextAsset field, TextAsset value)
+        {
+            if (field == value)
+            {
+                return false;
+            }
+            field = value;
+            return true;
         }
 
         private static TextAsset LoadText(string file)
