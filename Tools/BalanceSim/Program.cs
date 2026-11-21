@@ -49,7 +49,7 @@ namespace SlotBattle.Tools.BalanceSim
 
             Console.WriteLine("SlotBattle BalanceSim — 스테이지별 " + games + "판, 시드 " + baseSeed + "부터, 덱: " + string.Join(", ", deck));
             Console.WriteLine();
-            Console.WriteLine("스테이지          | 플레이어 | 승률    | 평균 길이 | 시간 초과 | 승/패/무");
+            Console.WriteLine("스테이지          | 플레이어 | 승률    | 평균 길이 | 시간 초과 | 승/패/무    | 배치 간격, 동시 유닛 수(기체, 판별 평균의 평균)");
             Console.WriteLine("------------------+----------+---------+-----------+-----------+-------------");
 
             foreach (var sourceStage in data.Stages)
@@ -94,6 +94,17 @@ namespace SlotBattle.Tools.BalanceSim
             public int Timeouts;
             public long PlayerUnits;
             public long EnemyUnits;
+            public long Placements;
+            public double PlayerAverageSum;
+            public double EnemyAverageSum;
+            public int PlayerMax;
+            public int EnemyMax;
+            public int GamesOverEight;
+
+            /// <summary>배치 간격: 판 길이 합 / 배치 횟수 합.</summary>
+            public double PlacementInterval => Placements == 0 ? 0 : TotalSeconds / Placements;
+            public double PlayerConcurrent => Games == 0 ? 0 : PlayerAverageSum / Games;
+            public double EnemyConcurrent => Games == 0 ? 0 : EnemyAverageSum / Games;
 
             public double WinRate => Games == 0 ? 0 : (double)Wins / Games;
             public double AverageSeconds => Games == 0 ? 0 : TotalSeconds / Games;
@@ -105,12 +116,11 @@ namespace SlotBattle.Tools.BalanceSim
             var outcomes = new BattleOutcome[games];
             var lengths = new double[games];
             var timeouts = new bool[games];
-            var playerUnits = new int[games];
-            var enemyUnits = new int[games];
+            var stats = new BattleStats[games];
             Parallel.For(0, games, i =>
             {
                 ulong seed = baseSeed + (ulong)i;
-                var sim = BattleRunner.Run(data, stage, deck, seed, factory(seed), out playerUnits[i], out enemyUnits[i]);
+                var sim = BattleRunner.Run(data, stage, deck, seed, factory(seed), out stats[i]);
                 outcomes[i] = sim.Outcome;
                 lengths[i] = sim.ElapsedSeconds;
                 timeouts[i] = sim.EndedByTimeout;
@@ -119,8 +129,17 @@ namespace SlotBattle.Tools.BalanceSim
             for (int i = 0; i < games; i++)
             {
                 summary.TotalSeconds += lengths[i];
-                summary.PlayerUnits += playerUnits[i];
-                summary.EnemyUnits += enemyUnits[i];
+                summary.PlayerUnits += stats[i].PlayerSummoned;
+                summary.EnemyUnits += stats[i].EnemySummoned;
+                summary.Placements += stats[i].Placements;
+                summary.PlayerAverageSum += stats[i].PlayerAverage;
+                summary.EnemyAverageSum += stats[i].EnemyAverage;
+                summary.PlayerMax = Math.Max(summary.PlayerMax, stats[i].PlayerMax);
+                summary.EnemyMax = Math.Max(summary.EnemyMax, stats[i].EnemyMax);
+                if (stats[i].PlayerMax > 8 || stats[i].EnemyMax > 8)
+                {
+                    summary.GamesOverEight++;
+                }
                 if (timeouts[i])
                 {
                     summary.Timeouts++;
@@ -145,7 +164,9 @@ namespace SlotBattle.Tools.BalanceSim
         {
             return title + "| " + player.PadRight(6) + " | " + Percent(s.WinRate).PadLeft(7) + " | " +
                 Seconds(s.AverageSeconds).PadLeft(9) + " | " + Percent(s.TimeoutRate).PadLeft(9) + " | " +
-                s.Wins + "/" + s.Losses + "/" + s.Draws + "  | 판당 유닛 내 " + (s.PlayerUnits / (double)s.Games).ToString("0") + " · 적 " + (s.EnemyUnits / (double)s.Games).ToString("0");
+                (s.Wins + "/" + s.Losses + "/" + s.Draws).PadRight(11) + " | 배치 " + s.PlacementInterval.ToString("0.0") + "초마다 | 동시 내 " +
+                s.PlayerConcurrent.ToString("0.0") + "(최대 " + s.PlayerMax + ") · 적 " + s.EnemyConcurrent.ToString("0.0") + "(최대 " + s.EnemyMax + ")" +
+                " | 8기 초과 판 " + Percent((double)s.GamesOverEight / Math.Max(1, s.Games));
         }
 
         private static string Percent(double rate)

@@ -25,12 +25,30 @@ namespace SlotBattle.Tools.BalanceSim
         public static BattleSimulation Run(GameData data, StageDef stage, IReadOnlyList<string> deck, ulong seed, IAutoPlayer player,
             out int playerUnits, out int enemyUnits)
         {
+            var sim = Run(data, stage, deck, seed, player, out BattleStats stats);
+            playerUnits = stats.PlayerSummoned;
+            enemyUnits = stats.EnemySummoned;
+            return sim;
+        }
+
+        /// <summary>한 판을 돌리며 배치 횟수와 틱마다의 동시 유닛 수(기체 단위)를 잰다.</summary>
+        public static BattleSimulation Run(GameData data, StageDef stage, IReadOnlyList<string> deck, ulong seed, IAutoPlayer player,
+            out BattleStats stats)
+        {
             var sim = new BattleSimulation(data, stage, deck, seed);
-            playerUnits = 0;
-            enemyUnits = 0;
+            stats = new BattleStats();
+            int logged = 0;
             while (!sim.IsOver)
             {
                 player.Act(sim);
+                var log = sim.CommandLog;
+                for (; logged < log.Count; logged++)
+                {
+                    if (log[logged].Command is PlaceUnitCommand)
+                    {
+                        stats.Placements++;
+                    }
+                }
                 sim.Tick();
                 foreach (var e in sim.DrainEvents())
                 {
@@ -38,18 +56,52 @@ namespace SlotBattle.Tools.BalanceSim
                     {
                         if (summoned.Unit.Side == Side.Player)
                         {
-                            playerUnits++;
+                            stats.PlayerSummoned++;
                         }
                         else
                         {
-                            enemyUnits++;
+                            stats.EnemySummoned++;
                         }
                     }
                 }
+                int mine = 0;
+                int theirs = 0;
+                foreach (var unit in sim.Units)
+                {
+                    if (unit.Side == Side.Player)
+                    {
+                        mine++;
+                    }
+                    else
+                    {
+                        theirs++;
+                    }
+                }
+                stats.Ticks++;
+                stats.PlayerUnitTicks += mine;
+                stats.EnemyUnitTicks += theirs;
+                stats.PlayerMax = Math.Max(stats.PlayerMax, mine);
+                stats.EnemyMax = Math.Max(stats.EnemyMax, theirs);
             }
             sim.DrainEvents();
             return sim;
         }
+    }
+
+    /// <summary>한 판의 측정값. 동시 유닛 수는 전장에 있는 기체 수(트윈봇은 2기)다.</summary>
+    public sealed class BattleStats
+    {
+        public int Placements;
+        public int PlayerSummoned;
+        public int EnemySummoned;
+        public long Ticks;
+        public long PlayerUnitTicks;
+        public long EnemyUnitTicks;
+        public int PlayerMax;
+        public int EnemyMax;
+
+        public double PlayerAverage => Ticks == 0 ? 0 : (double)PlayerUnitTicks / Ticks;
+        public double EnemyAverage => Ticks == 0 ? 0 : (double)EnemyUnitTicks / Ticks;
     }
 
     /// <summary>Assets/Data의 JSON을 디스크에서 읽는다(테스트와 BalanceSim 전용).</summary>

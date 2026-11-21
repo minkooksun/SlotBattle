@@ -172,6 +172,8 @@ namespace SlotBattle.Presentation
     {
         private readonly FeelConfig _feel;
         private PressableButton[] _stageButtons = new PressableButton[0];
+        private PressableButton[] _deckButtons = new PressableButton[0];
+        private string[] _deckIds = new string[0];
 
         public SettingsPanel(Transform parent, FeelConfig feel) : base("Settings", parent)
         {
@@ -190,6 +192,35 @@ namespace SlotBattle.Presentation
         public PressableButton CloseButton { get; }
         public Text StageTitle { get; private set; }
         public IReadOnlyList<PressableButton> StageButtons => _stageButtons;
+        public Text DeckTitle { get; private set; }
+        public IReadOnlyList<PressableButton> DeckButtons => _deckButtons;
+
+        /// <summary>
+        /// 개발용 덱 고르기: 유닛 버튼을 눌러 넣고 빼고, 덱 크기만큼 고르면 onToggle이 새 덱을 받는다.
+        /// 정식 덱 편성 화면은 M4에서 만든다.
+        /// </summary>
+        public void BuildDeckButtons(IReadOnlyList<string> unitIds, IReadOnlyList<string> labels, Action<string> onToggle)
+        {
+            DeckTitle = Ui.CreateText("DeckTitle", Card, "덱 (개발용, 5종 고르기)", 14, Palette.TextDim);
+            _deckIds = new string[unitIds.Count];
+            _deckButtons = new PressableButton[unitIds.Count];
+            for (int i = 0; i < unitIds.Count; i++)
+            {
+                string id = unitIds[i];
+                _deckIds[i] = id;
+                _deckButtons[i] = PressableButton.Create("Deck_" + id, Card, labels[i], Palette.PanelLight, _feel.Button, 14);
+                _deckButtons[i].OnClick = () => onToggle(id);
+            }
+        }
+
+        /// <summary>덱 버튼의 선택 표시를 갱신한다.</summary>
+        public void RefreshDeck(ICollection<string> selected)
+        {
+            for (int i = 0; i < _deckButtons.Length; i++)
+            {
+                _deckButtons[i].SetColor(selected.Contains(_deckIds[i]) ? Ui.Hex("#1FAA74") : Palette.PanelLight);
+            }
+        }
 
         /// <summary>개발용 스테이지 선택 버튼을 만든다.</summary>
         public void BuildStageButtons(IReadOnlyList<int> stageIds, Action<int> onSelect)
@@ -206,7 +237,7 @@ namespace SlotBattle.Presentation
 
         protected override Vector2 CardSize(Rect safeArea)
         {
-            return new Vector2(Mathf.Min(300f, safeArea.width - 32f), 420f);
+            return new Vector2(Mathf.Min(320f, safeArea.width - 32f), Mathf.Min(600f, safeArea.height - 32f));
         }
 
         public void Show(Rect safeArea, bool hapticsOn, bool hapticsSupported, bool shakeOn, int currentStage)
@@ -227,6 +258,19 @@ namespace SlotBattle.Presentation
                     Ui.Place((RectTransform)_stageButtons[i].transform, new Rect(20f + i * (bw + gap), size.y - 282f, bw, 52f));
                     bool current = _stageButtons[i].Label.text == currentStage.ToString();
                     _stageButtons[i].SetColor(current ? Ui.Hex("#2F7BFF") : Palette.PanelLight);
+                }
+            }
+            if (DeckTitle != null)
+            {
+                Ui.PlaceCentered(DeckTitle.rectTransform, new Vector2(size.x / 2f, size.y - 306f), new Vector2(size.x, 20f));
+                const int perRow = 4;
+                float gap = 6f;
+                float bw = (w - gap * (perRow - 1)) / perRow;
+                for (int i = 0; i < _deckButtons.Length; i++)
+                {
+                    int row = i / perRow;
+                    int col = i % perRow;
+                    Ui.Place((RectTransform)_deckButtons[i].transform, new Rect(20f + col * (bw + gap), size.y - 370f - row * 56f, bw, 48f));
                 }
             }
             Ui.Place((RectTransform)RestartButton.transform, new Rect(20f, 82f, w, 52f));

@@ -4,7 +4,7 @@ using SlotBattle.Core.Util;
 namespace SlotBattle.Tools.BalanceSim
 {
     /// <summary>
-    /// 초보형: 돌릴 수 있으면 바로 돌리고, 다시 돌리지 않고 확정하며,
+    /// 초보형: 돌릴 수 있으면 바로 돌리고, 다시 돌리지 않고 확정하며(세 칸이 모두 다르면 아무 칸이나 고름),
     /// 나온 유닛을 아무 라인·아무 위치에나 즉시 놓는다. 사령관 기술은 쓰지 않는다.
     /// </summary>
     public sealed class NovicePlayer : IAutoPlayer
@@ -30,14 +30,18 @@ namespace SlotBattle.Tools.BalanceSim
             }
             if (sim.PendingSpin != null)
             {
-                sim.Execute(new ConfirmSpinCommand());
+                int choice = sim.PendingSpin.RequiresChoice ? _rng.NextInt(sim.PendingSpin.Options.Count) : -1;
+                sim.Execute(new ConfirmSpinCommand(choice));
             }
             var cfg = sim.Config;
             while (sim.Queue.Count > 0)
             {
                 int lane = _rng.NextInt(cfg.LaneCount);
                 float position = _rng.NextFloat(0f, cfg.PlayerZoneLength);
-                sim.Execute(new PlaceUnitCommand(0, lane, position));
+                if (sim.Execute(new PlaceUnitCommand(0, lane, position)) != CommandResult.Ok)
+                {
+                    break;
+                }
             }
         }
     }

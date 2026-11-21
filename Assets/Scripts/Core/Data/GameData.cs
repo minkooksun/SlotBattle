@@ -103,6 +103,17 @@ namespace SlotBattle.Core.Data
                     }
                 }
                 ValidateAttack(unit);
+                foreach (var other in unit.StrongAgainst ?? new List<string>())
+                {
+                    if (!_units.ContainsKey(other))
+                    {
+                        throw new InvalidOperationException(unit.Id + ": strongAgainst에 알 수 없는 유닛 " + other);
+                    }
+                }
+            }
+            if (Battle.CounterMultiplier <= 0f)
+            {
+                throw new InvalidOperationException("counterMultiplier는 0보다 커야 합니다.");
             }
             var defense = Battle.CastleDefense;
             if (defense != null && defense.Damage > 0f && defense.ProjectileSpeed <= 0f)

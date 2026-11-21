@@ -44,7 +44,7 @@ namespace SlotBattle.Core.Tests
             var drone = TestHelper.SpawnFrozenEnemy(sim, "drone", 0, 8f);
             Assert.IsTrue(BattleSimulation.CanAttack(shooter, drone));
             TestHelper.TickAndLand(sim);
-            Assert.AreEqual(55f, drone.Hp);
+            Assert.AreEqual(70f - 15f * 1.5f, drone.Hp, 1e-4, "슈터봇은 드론봇에 강하다");
         }
 
         [Test]
@@ -55,7 +55,7 @@ namespace SlotBattle.Core.Tests
             var ground = TestHelper.SpawnFrozenEnemy(sim, "blade", 0, 7f);
             Assert.IsTrue(BattleSimulation.CanAttack(drone, ground));
             TestHelper.TickAndLand(sim);
-            Assert.AreEqual(86f, ground.Hp);
+            Assert.AreEqual(100f - 14f * 1.5f, ground.Hp, 1e-4, "드론봇은 블레이드봇에 강하다");
 
             var sim2 = TestHelper.NewSim();
             TestHelper.Spawn(sim2, "drone", Side.Player, 1, 18f);
@@ -150,19 +150,19 @@ namespace SlotBattle.Core.Tests
         // ── 물량 ──
 
         [Test]
-        public void 물량_유닛은_한_묶음이_3기로_나온다()
+        public void 트윈봇은_한_묶음이_2기로_나온다()
         {
             var sim = TestHelper.NewSim();
-            sim.AddToQueueForTest("swarm", 2);
+            sim.AddToQueueForTest("twin", 2);
             sim.Execute(new PlaceUnitCommand(0, 0, 5f));
-            Assert.AreEqual(3, sim.Units.Count);
+            Assert.AreEqual(2, sim.Units.Count);
             foreach (var unit in sim.Units)
             {
-                Assert.AreEqual("swarm", unit.Def.Id);
-                Assert.AreEqual(35f * 2.2f, unit.MaxHp, 1e-3, "기당 체력에 단계 배율");
+                Assert.AreEqual("twin", unit.Def.Id);
+                Assert.AreEqual(50f * 2.2f, unit.MaxHp, 1e-3, "기당 체력에 단계 배율");
                 Assert.AreEqual(0, unit.Lane);
             }
-            CollectionAssert.AreEqual(new[] { 5f, 4.7f, 4.4f }, sim.Units.Select(u => u.Y).ToArray(), new FloatComparer(1e-4f));
+            CollectionAssert.AreEqual(new[] { 5f, 4.7f }, sim.Units.Select(u => u.Y).ToArray(), new FloatComparer(1e-4f));
             Assert.AreEqual(0, sim.Queue.Count, "대기 칸은 한 칸만 쓴다");
         }
 

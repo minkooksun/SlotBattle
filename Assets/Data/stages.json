@@ -3,48 +3,184 @@
     {
       "id": 1,
       "name": "첫 출격",
-      "enemyStatMultiplier": 1.0,
+      "enemyStatMultiplier": 1.3,
       "rewardGold": 100,
       "spawns": [
-        {"time": 3, "lane": 0, "unit": "blade", "repeatEvery": 4.0},
-        {"time": 5.0, "lane": 1, "unit": "blade", "repeatEvery": 4.0},
-        {"time": 10, "lane": 0, "unit": "shooter", "repeatEvery": 8.0},
-        {"time": 14.0, "lane": 1, "unit": "shooter", "repeatEvery": 8.0}
+        {
+          "time": 4.0,
+          "lane": 0,
+          "unit": "blade",
+          "repeatEvery": 48.0
+        },
+        {
+          "time": 12.0,
+          "lane": 1,
+          "unit": "shooter",
+          "repeatEvery": 48.0
+        },
+        {
+          "time": 20.0,
+          "lane": 0,
+          "unit": "blade",
+          "repeatEvery": 48.0
+        },
+        {
+          "time": 28.0,
+          "lane": 1,
+          "unit": "shield",
+          "repeatEvery": 48.0
+        },
+        {
+          "time": 36.0,
+          "lane": 0,
+          "unit": "blade",
+          "repeatEvery": 48.0
+        },
+        {
+          "time": 44.0,
+          "lane": 1,
+          "unit": "shooter",
+          "repeatEvery": 48.0
+        }
       ]
     },
     {
       "id": 2,
       "name": "방어선",
-      "enemyStatMultiplier": 1.0,
+      "enemyStatMultiplier": 1.8,
       "rewardGold": 120,
       "spawns": [
-        {"time": 3, "lane": 0, "unit": "blade", "repeatEvery": 5.5},
-        {"time": 5.75, "lane": 1, "unit": "blade", "repeatEvery": 5.5},
-        {"time": 12, "lane": 0, "unit": "shield", "repeatEvery": 11.0},
-        {"time": 17.5, "lane": 1, "unit": "shield", "repeatEvery": 11.0},
-        {"time": 14, "lane": 0, "unit": "shooter", "repeatEvery": 11.0},
-        {"time": 19.5, "lane": 1, "unit": "shooter", "repeatEvery": 11.0},
-        {"time": 25, "lane": 1, "unit": "swarm", "repeatEvery": 16.5},
-        {"time": 33.25, "lane": 0, "unit": "swarm", "repeatEvery": 16.5},
-        {"time": 60, "lane": 0, "unit": "shield", "tier": 2, "repeatEvery": 60}
+        {
+          "time": 4.0,
+          "lane": 0,
+          "unit": "blade",
+          "repeatEvery": 90.0
+        },
+        {
+          "time": 13.0,
+          "lane": 1,
+          "unit": "shield",
+          "repeatEvery": 90.0
+        },
+        {
+          "time": 22.0,
+          "lane": 0,
+          "unit": "shooter",
+          "repeatEvery": 90.0
+        },
+        {
+          "time": 31.0,
+          "lane": 1,
+          "unit": "twin",
+          "repeatEvery": 90.0
+        },
+        {
+          "time": 40.0,
+          "lane": 0,
+          "unit": "blade",
+          "repeatEvery": 90.0
+        },
+        {
+          "time": 49.0,
+          "lane": 1,
+          "unit": "shooter",
+          "repeatEvery": 90.0
+        },
+        {
+          "time": 58.0,
+          "lane": 0,
+          "unit": "blade",
+          "tier": 2,
+          "repeatEvery": 90.0
+        },
+        {
+          "time": 67.0,
+          "lane": 1,
+          "unit": "twin",
+          "repeatEvery": 90.0
+        },
+        {
+          "time": 76.0,
+          "lane": 0,
+          "unit": "blade",
+          "repeatEvery": 90.0
+        },
+        {
+          "time": 85.0,
+          "lane": 1,
+          "unit": "plasma",
+          "repeatEvery": 90.0
+        }
       ]
     },
     {
       "id": 3,
       "name": "하늘의 위협",
-      "enemyStatMultiplier": 1.0,
+      "enemyStatMultiplier": 1.3,
       "rewardGold": 150,
       "spawns": [
-        {"time": 3, "lane": 0, "unit": "blade", "repeatEvery": 8},
-        {"time": 7.0, "lane": 1, "unit": "blade", "repeatEvery": 8},
-        {"time": 12, "lane": 1, "unit": "drone", "repeatEvery": 16},
-        {"time": 20, "lane": 0, "unit": "drone", "repeatEvery": 16},
-        {"time": 10, "lane": 0, "unit": "shield", "repeatEvery": 16},
-        {"time": 11, "lane": 0, "unit": "plasma", "repeatEvery": 16},
-        {"time": 16, "lane": 1, "unit": "shooter", "repeatEvery": 16},
-        {"time": 30, "lane": 1, "unit": "dash", "repeatEvery": 24},
-        {"time": 42.0, "lane": 0, "unit": "dash", "repeatEvery": 24},
-        {"time": 70, "lane": 1, "unit": "dash", "tier": 2, "repeatEvery": 50}
+        {
+          "time": 4.0,
+          "lane": 0,
+          "unit": "blade",
+          "repeatEvery": 85.0
+        },
+        {
+          "time": 12.5,
+          "lane": 1,
+          "unit": "drone",
+          "repeatEvery": 85.0
+        },
+        {
+          "time": 21.0,
+          "lane": 0,
+          "unit": "shield",
+          "repeatEvery": 85.0
+        },
+        {
+          "time": 29.5,
+          "lane": 1,
+          "unit": "plasma",
+          "repeatEvery": 85.0
+        },
+        {
+          "time": 38.0,
+          "lane": 0,
+          "unit": "dash",
+          "repeatEvery": 85.0
+        },
+        {
+          "time": 46.5,
+          "lane": 1,
+          "unit": "shooter",
+          "repeatEvery": 85.0
+        },
+        {
+          "time": 55.0,
+          "lane": 0,
+          "unit": "drone",
+          "repeatEvery": 85.0
+        },
+        {
+          "time": 63.5,
+          "lane": 1,
+          "unit": "blade",
+          "tier": 2,
+          "repeatEvery": 85.0
+        },
+        {
+          "time": 72.0,
+          "lane": 0,
+          "unit": "shield",
+          "repeatEvery": 85.0
+        },
+        {
+          "time": 80.5,
+          "lane": 1,
+          "unit": "dash",
+          "tier": 2,
+          "repeatEvery": 85.0
+        }
       ]
     }
   ]

@@ -13,21 +13,21 @@ namespace SlotBattle.Core.Tests
         // ── 소환 규칙(순수 함수) ──
 
         [Test]
-        public void 세_칸이_모두_다르면_각_그림의_1단계_3기()
+        public void 세_칸이_모두_다르면_칸_순서대로_1단계_후보_셋이고_하나를_골라야_한다()
         {
-            var result = SummonRule.Resolve(new[] { 0, 1, 2 }, 3);
-            CollectionAssert.AreEqual(new[] { new SummonEntry(0, 1), new SummonEntry(1, 1), new SummonEntry(2, 1) }, result);
+            var result = SummonRule.Resolve(new[] { 2, 0, 1 }, 3);
+            CollectionAssert.AreEqual(new[] { new SummonEntry(2, 1), new SummonEntry(0, 1), new SummonEntry(1, 1) }, result);
+            Assert.IsTrue(new SpinResult(new[] { 2, 0, 1 }, 3).RequiresChoice);
         }
 
         [TestCase(new[] { 3, 3, 1 })]
         [TestCase(new[] { 3, 1, 3 })]
         [TestCase(new[] { 1, 3, 3 })]
-        public void 두_칸이_같으면_2단계_1기와_나머지_1단계_1기(int[] symbols)
+        public void 두_칸이_같으면_2단계_1기만_나오고_나머지_칸은_버린다(int[] symbols)
         {
             var result = SummonRule.Resolve(symbols, 3);
-            Assert.AreEqual(2, result.Count);
-            CollectionAssert.Contains(result, new SummonEntry(3, 2));
-            CollectionAssert.Contains(result, new SummonEntry(1, 1));
+            CollectionAssert.AreEqual(new[] { new SummonEntry(3, 2) }, result);
+            Assert.IsFalse(new SpinResult(symbols, 3).RequiresChoice);
         }
 
         [Test]
@@ -76,19 +76,14 @@ namespace SlotBattle.Core.Tests
         public void 슬롯에는_덱에_넣은_5종의_그림만_나온다()
         {
             var deck = new[] { "dash", "drone", "boom", "blade", "shield" };
-            var sim = TestHelper.NewSim(deck: deck);
             for (int i = 0; i < 300; i++)
             {
+                var sim = TestHelper.NewSim(deck: deck, seed: (ulong)i + 1);
                 sim.SetManaForTest(10);
                 Assert.AreEqual(CommandResult.Ok, sim.Execute(new SpinCommand()));
                 foreach (int symbol in sim.PendingSpin.Symbols)
                 {
                     CollectionAssert.Contains(deck, sim.Deck[symbol].Id);
-                }
-                sim.Execute(new ConfirmSpinCommand());
-                while (sim.Queue.Count > 0)
-                {
-                    sim.Execute(new PlaceUnitCommand(0, 0, 0f));
                 }
             }
         }
@@ -97,7 +92,7 @@ namespace SlotBattle.Core.Tests
         public void 덱은_서로_다른_5종이어야_한다()
         {
             Assert.Throws<System.ArgumentException>(() => TestHelper.NewSim(deck: new[] { "blade", "shooter" }));
-            Assert.Throws<System.ArgumentException>(() => TestHelper.NewSim(deck: new[] { "blade", "blade", "shield", "swarm", "plasma" }));
+            Assert.Throws<System.ArgumentException>(() => TestHelper.NewSim(deck: new[] { "blade", "blade", "shield", "twin", "plasma" }));
         }
 
         // ── 스핀 ──
@@ -159,34 +154,55 @@ namespace SlotBattle.Core.Tests
 
         // ── 확정과 대기 칸 ──
 
-        [Test]
-        public void 확정한_유닛은_싸우지_않고_대기_칸에_들어간다()
+        [TestCase(0)]
+        [TestCase(1)]
+        [TestCase(2)]
+        public void 세_칸이_모두_다르면_고른_칸의_1단계_1기만_대기_칸에_들어간다(int chosen)
         {
             ulong seed = TestHelper.FindSeed(TestHelper.AllDifferent);
             var sim = TestHelper.NewSim(seed: seed);
             sim.SetManaForTest(10);
             sim.Execute(new SpinCommand());
             var symbols = sim.PendingSpin.Symbols.ToArray();
-            Assert.AreEqual(CommandResult.Ok, sim.Execute(new ConfirmSpinCommand()));
+            sim.DrainEvents();
+            Assert.AreEqual(CommandResult.Ok, sim.Execute(new ConfirmSpinCommand(chosen)));
             Assert.IsNull(sim.PendingSpin);
-            Assert.AreEqual(0, sim.Units.Count);
-            Assert.AreEqual(3, sim.Queue.Count);
-            for (int i = 0; i < 3; i++)
-            {
-                Assert.AreEqual(sim.Deck[symbols[i]], sim.Queue[i].Def);
-                Assert.AreEqual(1, sim.Queue[i].Tier);
-            }
+            Assert.AreEqual(0, sim.Units.Count, "싸우지 않고 대기 칸에 들어간다");
+            Assert.AreEqual(1, sim.Queue.Count);
+            Assert.AreEqual(sim.Deck[symbols[chosen]], sim.Queue[0].Def);
+            Assert.AreEqual(1, sim.Queue[0].Tier);
+            Assert.AreEqual(1, sim.DrainEvents().OfType<UnitsQueuedEvent>().Single().Count);
         }
 
-        [Test]
-        public void 두_칸이_같으면_대기_칸에_2단계와_1단계가_들어간다()
+        [TestCase(-1)]
+        [TestCase(3)]
+        public void 세_칸이_모두_다른데_고르지_않거나_없는_칸을_고르면_확정되지_않는다(int chosen)
+        {
+            ulong seed = TestHelper.FindSeed(TestHelper.AllDifferent);
+            var sim = TestHelper.NewSim(seed: seed);
+            sim.SetManaForTest(10);
+            sim.Execute(new SpinCommand());
+            var pending = sim.PendingSpin;
+            Assert.AreEqual(CommandResult.ChoiceRequired, sim.Execute(new ConfirmSpinCommand(chosen)));
+            Assert.AreSame(pending, sim.PendingSpin, "결과가 그대로 남는다");
+            Assert.AreEqual(0, sim.Queue.Count);
+        }
+
+        [TestCase(-1)]
+        [TestCase(0)]
+        [TestCase(2)]
+        public void 두_칸이_같으면_고른_칸과_상관없이_같은_그림의_2단계_1기(int chosen)
         {
             ulong seed = TestHelper.FindSeed(TestHelper.ExactlyPair);
             var sim = TestHelper.NewSim(seed: seed);
             sim.SetManaForTest(10);
             sim.Execute(new SpinCommand());
-            sim.Execute(new ConfirmSpinCommand());
-            CollectionAssert.AreEquivalent(new[] { 1, 2 }, sim.Queue.Select(q => q.Tier));
+            var s = sim.PendingSpin.Symbols.ToArray();
+            int pair = s[0] == s[1] || s[0] == s[2] ? s[0] : s[1];
+            Assert.AreEqual(CommandResult.Ok, sim.Execute(new ConfirmSpinCommand(chosen)));
+            Assert.AreEqual(1, sim.Queue.Count);
+            Assert.AreEqual(sim.Deck[pair], sim.Queue[0].Def);
+            Assert.AreEqual(2, sim.Queue[0].Tier);
         }
 
         [Test]
@@ -205,19 +221,31 @@ namespace SlotBattle.Core.Tests
         }
 
         [Test]
-        public void 대기_칸이_모자라면_확정할_수_없고_자리가_나면_확정된다()
+        public void 대기_칸이_가득_차면_확정할_수_없고_자리가_나면_확정된다()
         {
             ulong seed = TestHelper.FindSeed(TestHelper.AllDifferent);
             var sim = TestHelper.NewSim(seed: seed);
             sim.SetManaForTest(10);
-            sim.AddToQueueForTest("blade", 1);
-            sim.AddToQueueForTest("blade", 1);
             sim.Execute(new SpinCommand());
-            Assert.AreEqual(CommandResult.NotEnoughQueueSpace, sim.Execute(new ConfirmSpinCommand()));
+            for (int i = 0; i < 4; i++)
+            {
+                sim.AddToQueueForTest("blade", 1);
+            }
+            Assert.AreEqual(CommandResult.NotEnoughQueueSpace, sim.Execute(new ConfirmSpinCommand(0)));
             Assert.IsNotNull(sim.PendingSpin);
             Assert.AreEqual(CommandResult.Ok, sim.Execute(new PlaceUnitCommand(0, 0, 1f)));
-            Assert.AreEqual(CommandResult.Ok, sim.Execute(new ConfirmSpinCommand()));
+            Assert.AreEqual(CommandResult.Ok, sim.Execute(new ConfirmSpinCommand(0)));
             Assert.AreEqual(4, sim.Queue.Count);
+        }
+
+        [Test]
+        public void 트윈봇은_2기_한_묶음이지만_대기_칸은_1칸을_쓴다()
+        {
+            var sim = TestHelper.NewSim();
+            sim.AddToQueueForTest("twin", 1);
+            Assert.AreEqual(1, sim.Queue.Count);
+            Assert.AreEqual(CommandResult.Ok, sim.Execute(new PlaceUnitCommand(0, 0, 5f)));
+            Assert.AreEqual(2, sim.Units.Count(u => u.Def.Id == "twin"));
         }
 
         [Test]
@@ -253,11 +281,8 @@ namespace SlotBattle.Core.Tests
             sim.Execute(new SpinCommand());
             Assert.AreEqual(CommandResult.Ok, sim.Execute(new RespinCommand(0)));
             Assert.AreEqual(CommandResult.RespinLimitReached, sim.Execute(new RespinCommand(0)));
-            sim.Execute(new ConfirmSpinCommand());
-            while (sim.Queue.Count > 0)
-            {
-                sim.Execute(new PlaceUnitCommand(0, 0, 0f));
-            }
+            sim.Execute(new ConfirmSpinCommand(0));
+            Assert.AreEqual(CommandResult.Ok, sim.Execute(new PlaceUnitCommand(0, 0, 0f)));
             sim.SetManaForTest(10);
             sim.Execute(new SpinCommand());
             Assert.AreEqual(CommandResult.Ok, sim.Execute(new RespinCommand(2)), "새 스핀에서는 다시 할 수 있다");
@@ -293,7 +318,6 @@ namespace SlotBattle.Core.Tests
             {
                 var sim = TestHelper.NewSim(seed: seed);
                 sim.SetManaForTest(10);
-            sim.SetManaForTest(10);
                 sim.Execute(new SpinCommand());
                 var s = sim.PendingSpin.Symbols.ToArray();
                 if (!TestHelper.ExactlyPair(s))
@@ -308,8 +332,8 @@ namespace SlotBattle.Core.Tests
                     continue;
                 }
                 Assert.AreEqual(1, sim.DrainEvents().OfType<JackpotEvent>().Count());
-                Assert.AreEqual(1, sim.PendingSpin.Summons.Count);
-                Assert.AreEqual(3, sim.PendingSpin.Summons[0].Tier);
+                Assert.AreEqual(1, sim.PendingSpin.Options.Count);
+                Assert.AreEqual(3, sim.PendingSpin.Options[0].Tier);
                 return;
             }
             Assert.Fail("시드를 찾지 못했습니다.");

@@ -22,7 +22,7 @@ namespace SlotBattle.Core.Tests
         [TestCase("blade", AttackType.Melee)]
         [TestCase("shooter", AttackType.Bolt)]
         [TestCase("shield", AttackType.Melee)]
-        [TestCase("swarm", AttackType.Melee)]
+        [TestCase("twin", AttackType.Melee)]
         [TestCase("boom", AttackType.Explode)]
         [TestCase("plasma", AttackType.Lob)]
         [TestCase("dash", AttackType.Charge)]
@@ -88,7 +88,7 @@ namespace SlotBattle.Core.Tests
             TestHelper.Ticks(sim, flight - 1);
             Assert.AreEqual(250f, target.Hp, "날아가는 중");
             sim.Tick();
-            Assert.AreEqual(235f, target.Hp, "도착한 틱에 피해");
+            Assert.AreEqual(250f - 15f * 1.5f, target.Hp, 1e-4, "도착한 틱에 피해(슈터봇은 실드봇에 강함)");
             Assert.AreEqual(0, sim.Projectiles.Count);
         }
 
@@ -148,7 +148,7 @@ namespace SlotBattle.Core.Tests
             sim.Tick();
             shooter.Hp = 0f;
             TestHelper.TickAndLand(sim);
-            Assert.AreEqual(235f, target.Hp);
+            Assert.AreEqual(250f - 15f * 1.5f, target.Hp, 1e-4);
         }
 
         [Test]

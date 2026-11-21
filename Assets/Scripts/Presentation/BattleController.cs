@@ -53,6 +53,23 @@ namespace SlotBattle.Presentation
         private bool _aiming;
         private float _castleShakeCooldown;
         private readonly string[] _queueSignature = new string[8];
+        private readonly List<string> _deckIds = new List<string>();
+        private readonly List<string> _pendingDeck = new List<string>();
+
+        // 준비 동작만큼 늦춰 보여 줄 사건(설계서 8장 "유닛별 공격 연출"). At 순서로 정렬해 둔다.
+        private readonly List<DelayedEvent> _delayed = new List<DelayedEvent>();
+        private readonly Dictionary<Unit, float> _hitDelay = new Dictionary<Unit, float>();
+        private float _showClock;
+        private float _pendingEnemyCastleDamage;
+        private float _pendingPlayerCastleDamage;
+
+        private struct DelayedEvent
+        {
+            public float At;
+            public BattleEvent Event;
+            /// <summary>AttackStartedEvent의 준비 동작이 끝나는 순간(휘두르기·섬광).</summary>
+            public bool Strike;
+        }
 
         /// <summary>테스트에서 iPhone·iPad 화면을 흉내 낼 때 쓴다. null이면 실제 기기 화면.</summary>
         public Func<ScreenInfo> ScreenOverride;
@@ -89,6 +106,9 @@ namespace SlotBattle.Presentation
             _root.anchoredPosition = Vector2.zero;
 
             _field = new BattlefieldView(_root, feel);
+            // 로봇 얼굴 아이콘은 3D 로봇을 찍어 만든다(슬롯 릴, 대기 칸, 끌기 그림).
+            var icons = new RobotIcons(_field.World, data, feel.World);
+            UnitStyle.IconProvider = icons.Get;
             _playerBar = new CastleBar(_root, "내 코어 기지", Palette.Player, feel.Numbers);
             _hud = new HudView(_root, feel);
             _control = new ControlPanel(_root, feel, data.Battle.WaitingQueueCapacity, data.Slot.ReelCount, OnReelTapped);
@@ -128,6 +148,18 @@ namespace SlotBattle.Presentation
                 stageIds.Add(stage.Id);
             }
             _settings.BuildStageButtons(stageIds, SelectStage);
+            var unitIds = new List<string>();
+            var labels = new List<string>();
+            foreach (var unit in data.Units)
+            {
+                if (unit.Release == 1)
+                {
+                    unitIds.Add(unit.Id);
+                    labels.Add(UnitStyle.Get(unit.Id).Label);
+                }
+            }
+            _settings.BuildDeckButtons(unitIds, labels, ToggleDeckUnit);
+            _deckIds.AddRange(data.Slot.StartingDeck);
 
             Restart();
         }
@@ -142,7 +174,7 @@ namespace SlotBattle.Presentation
         public void Restart(ulong seed)
         {
             var stage = _data.GetStage(StageId);
-            _sim = new BattleSimulation(_data, stage, _data.Slot.StartingDeck, seed);
+            _sim = new BattleSimulation(_data, stage, _deckIds, seed);
             _acc = 0f;
             _paused = false;
             _slowT = 0f;
@@ -168,6 +200,9 @@ namespace SlotBattle.Presentation
             _hud.EnemyBar.Reset(_sim.EnemyCastle.MaxHp);
             _playerBar.Reset(_sim.PlayerCastle.MaxHp);
             _sim.DrainEvents();
+            _delayed.Clear();
+            _pendingEnemyCastleDamage = 0f;
+            _pendingPlayerCastleDamage = 0f;
         }
 
         // ───────────── 프레임 ─────────────
@@ -183,6 +218,7 @@ namespace SlotBattle.Presentation
             if (!_paused)
             {
                 Step(dt, MaxTicksPerFrame);
+                AdvanceShowClock(dt);
             }
             Render(dt);
         }
@@ -194,6 +230,7 @@ namespace SlotBattle.Presentation
             if (!_paused)
             {
                 Step(seconds, int.MaxValue);
+                AdvanceShowClock(seconds);
             }
             Render(Mathf.Min(seconds, 0.1f));
         }
@@ -236,11 +273,12 @@ namespace SlotBattle.Presentation
                 fxDt = dt * _feel.Death.CastleSlowMotion;
             }
             float alpha = Mathf.Clamp01(_acc / TickDt);
-            _field.Render(_sim, alpha, fxDt, OnBigLanding);
+            _field.Render(_sim, alpha, fxDt, _paused ? 0f : dt, OnBigLanding);
 
-            _hud.EnemyBar.SetValue(_sim.EnemyCastle.Hp);
+            // 늦춰 보여 주는 피해는 보여 줄 때까지 성 체력에서 빼지 않는다.
+            _hud.EnemyBar.SetValue(_sim.EnemyCastle.Hp + _pendingEnemyCastleDamage);
             _hud.EnemyBar.Render(dt);
-            _playerBar.SetValue(_sim.PlayerCastle.Hp);
+            _playerBar.SetValue(_sim.PlayerCastle.Hp + _pendingPlayerCastleDamage);
             _playerBar.Render(dt);
             _hud.Render(_sim, dt);
 
@@ -283,7 +321,7 @@ namespace SlotBattle.Presentation
             _lastScreen = screen;
             _scaler.scaleFactor = screen.PointScale;
             _layout = LayoutCalculator.Compute(screen, _feel.Layout);
-            _field.Layout(_layout.Battlefield);
+            _field.Layout(_layout.Battlefield, screen.PointScale);
             Ui.Place(_playerBar.Root, _layout.PlayerCastleBar);
             _hud.Layout(_layout.Hud);
             _control.Layout(_layout.Control, _sim != null ? _sim.MaxMana : 10);
@@ -303,42 +341,180 @@ namespace SlotBattle.Presentation
 
         // ───────────── 사건 → 연출 ─────────────
 
+        /// <summary>
+        /// 이번 틱의 사건을 받는다. 공격 시작은 바로 준비 동작을 재생하고, 그 공격에서 나온 사건
+        /// (탄 발사·도착, 폭발, 타격, 성 피해, 사망)은 준비 동작 시간만큼 늦춰 보여 준다.
+        /// Core의 시간과 결과는 그대로다.
+        /// </summary>
         private void Dispatch()
         {
             var events = _sim.DrainEvents();
+            _hitDelay.Clear();
+            float batchDelay = 0f;
             for (int i = 0; i < events.Count; i++)
             {
-                switch (events[i])
+                var e = events[i];
+                float delay = 0f;
+                switch (e)
                 {
-                    case UnitSummonedEvent summoned:
-                        bool bigDrop = summoned.Unit.Side == Side.Player && summoned.Unit.Tier >= 3;
-                        _field.AddUnit(summoned.Unit, bigDrop);
-                        break;
+                    case AttackStartedEvent attack:
+                    {
+                        float windup = attack.Attacker != null ? Windup(attack.Attacker) : _feel.Attack.Windup.Castle;
+                        _field.BeginAttack(attack, windup);
+                        Enqueue(attack, windup, true);
+                        continue;
+                    }
                     case UnitHitEvent hit:
-                        _field.OnHit(hit);
-                        break;
-                    case UnitDiedEvent died:
-                        _field.OnDied(died.Unit);
+                        delay = hit.Attacker != null ? Windup(hit.Attacker) : hit.SourceCastle != null ? _feel.Attack.Windup.Castle : 0f;
+                        _field.AddPendingDamage(hit.Target, hit.Damage);
+                        _hitDelay[hit.Target] = _hitDelay.TryGetValue(hit.Target, out float d) ? Mathf.Max(d, delay) : delay;
                         break;
                     case CastleDamagedEvent castle:
-                        _field.OnCastleDamaged(castle.Castle.Side);
-                        if (_castleShakeCooldown <= 0f)
+                        delay = castle.Attacker != null ? Windup(castle.Attacker) : 0f;
+                        if (castle.Castle.Side == Side.Enemy)
                         {
-                            // 성 타격 흔들림은 너무 잦지 않게 묶는다.
-                            _field.Shake(_feel.Shake.CastleHit);
-                            _castleShakeCooldown = 0.2f;
+                            _pendingEnemyCastleDamage += castle.Damage;
+                        }
+                        else
+                        {
+                            _pendingPlayerCastleDamage += castle.Damage;
                         }
                         break;
                     case ExplosionEvent explosion:
-                        _field.Explosion(explosion.Lane, explosion.Y, explosion.Radius);
+                        delay = explosion.Source != null ? Windup(explosion.Source) : 0f;
                         break;
-                    case CommanderSkillUsedEvent skill:
-                        _field.SkillBlast(skill.Lane, skill.Y, skill.Radius);
+                    case ProjectileLaunchedEvent launched:
+                        delay = ProjectileDelay(launched.Projectile);
+                        _field.TrackLaunch(launched.Projectile, launched.Tick);
                         break;
-                    case BattleEndedEvent ended:
-                        OnBattleEnded(ended.Outcome);
+                    case ProjectileArrivedEvent arrived:
+                        delay = ProjectileDelay(arrived.Projectile);
+                        _field.TrackArrival(arrived.Projectile, arrived.Tick);
+                        break;
+                    case UnitDiedEvent died:
+                        // 마지막 타격을 보여 준 뒤에 터진다. 자폭은 폭발과 함께 사라진다.
+                        delay = _hitDelay.TryGetValue(died.Unit, out float hitDelay) ? hitDelay : 0f;
+                        if (died.Unit.Def.AttackType == AttackType.Explode)
+                        {
+                            delay = Mathf.Max(delay, Windup(died.Unit));
+                        }
+                        _field.MarkDying(died.Unit);
+                        break;
+                    case BattleEndedEvent _:
+                        // 마지막 일격을 보여 준 뒤 성이 무너진다.
+                        delay = batchDelay;
                         break;
                 }
+                batchDelay = Mathf.Max(batchDelay, delay);
+                if (delay <= 0f)
+                {
+                    Show(e, 0f);
+                }
+                else
+                {
+                    Enqueue(e, delay, false);
+                }
+            }
+            _field.RecordProjectiles(_sim);
+        }
+
+        /// <summary>준비 동작 시간: 공격 방식별 값, 스웜봇은 한 기마다 조금씩 더해 엇갈려 찌른다.</summary>
+        private float Windup(Unit unit)
+        {
+            float windup = _feel.Attack.Windup.For(unit.Def.AttackType);
+            if (UnitStyle.AttackOf(unit.Def) == AttackAnim.Stab)
+            {
+                windup += (unit.Id % 2) * _feel.Attack.SwarmStagger;
+            }
+            return windup;
+        }
+
+        private float ProjectileDelay(Projectile projectile)
+        {
+            if (projectile.Attacker != null)
+            {
+                return Windup(projectile.Attacker);
+            }
+            return projectile.SourceCastle != null ? _feel.Attack.Windup.Castle : 0f;
+        }
+
+        private void Enqueue(BattleEvent e, float delay, bool strike)
+        {
+            var entry = new DelayedEvent { At = _showClock + delay, Event = e, Strike = strike };
+            int index = _delayed.Count;
+            while (index > 0 && _delayed[index - 1].At > entry.At)
+            {
+                index--;
+            }
+            _delayed.Insert(index, entry);
+        }
+
+        /// <summary>연출 시계를 진행하고 때가 된 사건을 보여 준다(판이 끝난 뒤에도 남은 사건은 보여 준다).</summary>
+        private void AdvanceShowClock(float dt)
+        {
+            _showClock += dt;
+            while (_delayed.Count > 0 && _delayed[0].At <= _showClock)
+            {
+                var entry = _delayed[0];
+                _delayed.RemoveAt(0);
+                if (entry.Strike)
+                {
+                    _field.Strike((AttackStartedEvent)entry.Event);
+                }
+                else
+                {
+                    Show(entry.Event, _showClock - entry.At);
+                }
+            }
+        }
+
+        /// <summary>사건 하나를 화면에 보여 준다. late: 보여 줄 시각보다 이미 늦은 시간.</summary>
+        private void Show(BattleEvent e, float late)
+        {
+            switch (e)
+            {
+                case UnitSummonedEvent summoned:
+                    bool bigDrop = summoned.Unit.Side == Side.Player && summoned.Unit.Tier >= 3;
+                    _field.AddUnit(summoned.Unit, bigDrop);
+                    break;
+                case UnitHitEvent hit:
+                    _field.OnHit(hit);
+                    break;
+                case UnitDiedEvent died:
+                    _field.OnDied(died.Unit);
+                    break;
+                case CastleDamagedEvent castle:
+                    if (castle.Castle.Side == Side.Enemy)
+                    {
+                        _pendingEnemyCastleDamage = Mathf.Max(0f, _pendingEnemyCastleDamage - castle.Damage);
+                    }
+                    else
+                    {
+                        _pendingPlayerCastleDamage = Mathf.Max(0f, _pendingPlayerCastleDamage - castle.Damage);
+                    }
+                    _field.OnCastleDamaged(castle.Castle.Side);
+                    if (_castleShakeCooldown <= 0f)
+                    {
+                        // 성 타격 흔들림은 너무 잦지 않게 묶는다.
+                        _field.Shake(_feel.Shake.CastleHit);
+                        _castleShakeCooldown = 0.2f;
+                    }
+                    break;
+                case ExplosionEvent explosion:
+                    _field.Explosion(explosion);
+                    break;
+                case ProjectileLaunchedEvent launched:
+                    _field.ShowLaunch(launched.Projectile, late);
+                    break;
+                case ProjectileArrivedEvent arrived:
+                    _field.ShowArrival(arrived);
+                    break;
+                case CommanderSkillUsedEvent skill:
+                    _field.SkillBlast(skill.Lane, skill.Y, skill.Radius);
+                    break;
+                case BattleEndedEvent ended:
+                    OnBattleEnded(ended.Outcome);
+                    break;
             }
         }
 
@@ -388,7 +564,7 @@ namespace SlotBattle.Presentation
             return result;
         }
 
-        /// <summary>큰 버튼: 결과가 없으면 조립(스핀), 있으면 확정.</summary>
+        /// <summary>큰 버튼: 결과가 없으면 조립(스핀), 있으면 확정. 세 칸이 모두 다르면 누른 칸(고른 칸)을 받는다.</summary>
         public void PressMain()
         {
             if (_sim.IsOver || _paused)
@@ -414,27 +590,27 @@ namespace SlotBattle.Presentation
 
             // 연출 중에도 바로 확정할 수 있다(연출이 조작을 막지 않게).
             _control.Reels.Finish();
-            var symbols = new List<int>(pending.Symbols);
-            var summons = new List<Core.Slot.SummonEntry>(pending.Summons);
+            int choice = pending.RequiresChoice ? _lockedReel : -1;
+            var entry = pending.RequiresChoice && choice >= 0 ? pending.Options[choice] : pending.Options[0];
+            int fromReel = choice >= 0 ? choice : new List<int>(pending.Symbols).IndexOf(entry.Symbol);
             int before = _sim.Queue.Count;
-            var confirm = Execute(new ConfirmSpinCommand());
+            var confirm = Execute(new ConfirmSpinCommand(choice));
             if (confirm == CommandResult.Ok)
             {
-                for (int k = 0; k < summons.Count; k++)
+                if (before < _control.QueueSlots.Length)
                 {
-                    int reel = symbols.IndexOf(summons[k].Symbol);
-                    int slot = before + k;
-                    if (slot >= _control.QueueSlots.Length)
-                    {
-                        continue;
-                    }
-                    var style = UnitStyle.Get(_sim.Deck[summons[k].Symbol].Id);
-                    _control.QueueSlots[slot].RevealAfter(_feel.Unit.FlyToQueueTime);
-                    _control.Fx.Fly(style.Shape, style.Color, _control.ReelCenter(Mathf.Max(0, reel)), _control.QueueCenter(slot),
-                        28f, _feel.Unit.FlyToQueueTime, null);
+                    var style = UnitStyle.Get(_sim.Deck[entry.Symbol].Id);
+                    _control.QueueSlots[before].RevealAfter(_feel.Unit.FlyToQueueTime);
+                    _control.Fx.Fly(style.Shape, style.Color, _control.ReelCenter(Mathf.Max(0, fromReel)), _control.QueueCenter(before),
+                        34f, _feel.Unit.FlyToQueueTime, null, UnitStyle.Icon(_sim.Deck[entry.Symbol].Id));
                 }
                 _lockedReel = -1;
                 _control.Reels.ShowIdle();
+            }
+            else if (confirm == CommandResult.ChoiceRequired)
+            {
+                _control.MainButton.Deny();
+                Toast("받을 유닛의 칸을 누르세요");
             }
             else if (confirm == CommandResult.NotEnoughQueueSpace)
             {
@@ -515,7 +691,9 @@ namespace SlotBattle.Presentation
         private void OnReelTapped(int index)
         {
             var pending = _sim.PendingSpin;
-            if (_sim.IsOver || pending == null || _control.Reels.IsAnimating || pending.RespinsUsed >= _data.Slot.RespinsPerSpin)
+            // 누른 칸은 재조립의 고정 칸이자, 세 칸이 모두 다를 때 받을 칸이다.
+            if (_sim.IsOver || pending == null || _control.Reels.IsAnimating
+                || (pending.RespinsUsed >= _data.Slot.RespinsPerSpin && !pending.RequiresChoice))
             {
                 return;
             }
@@ -610,10 +788,10 @@ namespace SlotBattle.Presentation
             _control.QueueSlots[index].IsDragging = true;
             var queued = _sim.Queue[index];
             var style = UnitStyle.Get(queued.Def.Id);
-            float size = 30f * _feel.Unit.DragScale + queued.Tier * 4f;
-            Ui.SetShape(_dragGhost, style.Shape);
-            Ui.SetShape(_dragGhostOutline, style.Shape);
-            _dragGhost.color = style.Color;
+            bool hasIcon = UnitStyle.ApplyIcon(_dragGhost, queued.Def.Id);
+            float size = (hasIcon ? 40f : 30f) * _feel.Unit.DragScale + queued.Tier * 4f;
+            Ui.SetShape(_dragGhostOutline, hasIcon ? Shape.RoundedSquare : style.Shape);
+            _dragGhostOutline.color = hasIcon ? Ui.WithAlpha(style.Color, 0.4f) : Palette.Player;
             _dragGhost.rectTransform.sizeDelta = new Vector2(size, size);
             _dragGhostOutline.rectTransform.sizeDelta = new Vector2(size + 6f, size + 6f);
             _dragGhost.gameObject.SetActive(true);
@@ -701,6 +879,10 @@ namespace SlotBattle.Presentation
             {
                 PlayHaptic(_feel.Haptics.UnitLanding);
             }
+            else if (result == CommandResult.FieldFull)
+            {
+                Toast("전장이 가득 찼습니다(최대 " + _sim.MaxFieldUnits + "기)");
+            }
             return result;
         }
 
@@ -727,7 +909,8 @@ namespace SlotBattle.Presentation
                 main.Label.text = "확정";
                 // 릴이 도는 동안에는 결과를 미리 알려 주지 않는다(기다리는 긴장이 핵심).
                 main.SubLabel.text = _control.Reels.IsAnimating ? "조립 중..."
-                    : (pending.IsJackpot ? "합체형!" : pending.Summons.Count + "기 대기 칸으로");
+                    : pending.RequiresChoice ? (_lockedReel >= 0 ? "고른 유닛 받기" : "받을 칸을 누르세요")
+                    : (pending.IsJackpot ? "합체형!" : "강화형 1기");
                 main.SetColor(Ui.Hex("#1FAA74"));
                 main.Interactable = !over;
                 main.Pulse = false;
@@ -788,7 +971,42 @@ namespace SlotBattle.Presentation
             _paused = true;
             CancelDrag();
             SetAiming(false);
+            _pendingDeck.Clear();
             _settings.Show(_layout.SafeArea, _haptics.Enabled, _haptics.IsSupported, _field.ShakeEnabled, StageId);
+            _settings.RefreshDeck(_deckIds);
+        }
+
+        /// <summary>지금 판의 덱(개발용 덱 고르기로 바꿀 수 있다).</summary>
+        public IReadOnlyList<string> DeckIds => _deckIds;
+
+        /// <summary>개발용 덱 고르기: 넣고 빼다가 덱 크기가 되면 그 덱으로 새 판을 시작한다.</summary>
+        public void ToggleDeckUnit(string unitId)
+        {
+            if (_pendingDeck.Count == 0)
+            {
+                _pendingDeck.AddRange(_deckIds);
+            }
+            if (_pendingDeck.Contains(unitId))
+            {
+                _pendingDeck.Remove(unitId);
+            }
+            else if (_pendingDeck.Count < _data.Slot.DeckSize)
+            {
+                _pendingDeck.Add(unitId);
+            }
+            else
+            {
+                Toast("먼저 하나를 빼세요(덱은 " + _data.Slot.DeckSize + "종)");
+                return;
+            }
+            _settings.RefreshDeck(_pendingDeck);
+            if (_pendingDeck.Count == _data.Slot.DeckSize)
+            {
+                _deckIds.Clear();
+                _deckIds.AddRange(_pendingDeck);
+                _pendingDeck.Clear();
+                Restart();
+            }
         }
 
         /// <summary>개발용: 다른 스테이지로 새 판을 시작한다.</summary>

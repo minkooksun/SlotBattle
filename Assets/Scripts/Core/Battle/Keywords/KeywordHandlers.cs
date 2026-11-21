@@ -18,6 +18,12 @@ namespace SlotBattle.Core.Battle.Keywords
         public const string Splash = "splash";
         /// <summary>물량: 한 묶음이 swarmCount기로 나온다.</summary>
         public const string Swarm = "swarm";
+        /// <summary>방어진: 놓은 자리에서 움직이지 않는다.</summary>
+        public const string Hold = "hold";
+        /// <summary>도발: 사거리 안의 적이 이 유닛을 먼저 노린다.</summary>
+        public const string Taunt = "taunt";
+        /// <summary>돌격: 앞에 적이 보이면 빨라지고, 달려든 뒤 첫 타격이 세다(battle.json의 charge).</summary>
+        public const string Charge = "charge";
     }
 
     /// <summary>한 번의 공격이 누구에게 들어가는지 모으는 작업 공간.</summary>
@@ -72,6 +78,15 @@ namespace SlotBattle.Core.Battle.Keywords
             return true;
         }
 
+        /// <summary>스스로 움직일 수 있는가(방어진은 false).</summary>
+        public virtual bool CanMove => true;
+
+        /// <summary>적이 이 유닛을 먼저 노리는가(도발).</summary>
+        public virtual bool Taunts => false;
+
+        /// <summary>돌격하는가.</summary>
+        public virtual bool Charges => false;
+
         /// <summary>근접 계열 공격이 정해진 뒤 맞는 대상을 바꾸거나 더한다(탄 공격에는 쓰지 않는다).</summary>
         public virtual void ModifyAttack(BattleSimulation sim, AttackContext ctx)
         {
@@ -117,6 +132,24 @@ namespace SlotBattle.Core.Battle.Keywords
         }
     }
 
+    internal sealed class HoldHandler : KeywordHandler
+    {
+        public override string Keyword => KeywordNames.Hold;
+        public override bool CanMove => false;
+    }
+
+    internal sealed class TauntHandler : KeywordHandler
+    {
+        public override string Keyword => KeywordNames.Taunt;
+        public override bool Taunts => true;
+    }
+
+    internal sealed class ChargeHandler : KeywordHandler
+    {
+        public override string Keyword => KeywordNames.Charge;
+        public override bool Charges => true;
+    }
+
     public static class KeywordRegistry
     {
         private static readonly Dictionary<string, KeywordHandler> Handlers = Build();
@@ -146,6 +179,9 @@ namespace SlotBattle.Core.Battle.Keywords
                 new AntiAirHandler(),
                 new SplashHandler(),
                 new SwarmHandler(),
+                new HoldHandler(),
+                new TauntHandler(),
+                new ChargeHandler(),
             };
             var map = new Dictionary<string, KeywordHandler>();
             foreach (var handler in list)

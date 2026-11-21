@@ -39,6 +39,8 @@ namespace SlotBattle.Core.Data
         public float SplashRadius;
         /// <summary>swarm 키워드가 쓰는 한 묶음의 기체 수.</summary>
         public int SwarmCount;
+        /// <summary>상성표의 강한 상대(유닛 id). 이 상대를 공격하면 피해에 battle.json의 counterMultiplier를 곱한다.</summary>
+        public List<string> StrongAgainst = new List<string>();
         /// <summary>1이면 1차 출시, 2 이상은 업데이트 번호.</summary>
         public int Release = 1;
 
@@ -52,6 +54,20 @@ namespace SlotBattle.Core.Data
         {
             return Keywords != null && Keywords.Contains(keyword);
         }
+
+        public bool IsStrongAgainst(UnitDef other)
+        {
+            return StrongAgainst != null && other != null && StrongAgainst.Contains(other.Id);
+        }
+    }
+
+    public sealed class ChargeConfig
+    {
+        /// <summary>앞쪽 이 거리 안에 적이 보이면 돌격한다.</summary>
+        public float Range = 4f;
+        public float SpeedMultiplier = 2f;
+        /// <summary>돌격 뒤 첫 타격의 피해 배율.</summary>
+        public float DamageMultiplier = 2f;
     }
 
     public sealed class SlotConfig
@@ -104,6 +120,12 @@ namespace SlotBattle.Core.Data
         public float MeleeRange;
         public float SwarmSpacing;
         public float EnemySpawnDistance;
+        /// <summary>한 편이 전장에 동시에 둘 수 있는 기체 수. 0이면 제한 없음.</summary>
+        public int MaxFieldUnits;
+        /// <summary>상성표의 강한 상대를 공격할 때 피해 배율. 1이면 상성 피해 없음.</summary>
+        public float CounterMultiplier = 1f;
+        /// <summary>돌격 키워드(설계서 2장 "유닛 행동").</summary>
+        public ChargeConfig Charge = new ChargeConfig();
         /// <summary>유닛 능력치 배율(양쪽 모두). units.json은 유닛끼리의 비율을 정하는 기준값이다.</summary>
         public float UnitHpScale = 1f;
         public float UnitAttackScale = 1f;

@@ -68,7 +68,8 @@ namespace SlotBattle.Core.Tests
         public void 같은_시드에서_숙련형의_승률이_초보형보다_25퍼센트포인트_이상_높다_스테이지2부터()
         {
             var data = TestHelper.Data;
-            const int games = 200;
+            // BalanceSim과 같은 1000판(시드 1~1000)으로 잰다. 200판은 표본 흔들림이 ±5%p 정도라 기준 근처에서 판정이 뒤집힌다.
+            const int games = 1000;
             foreach (var stage in data.Stages)
             {
                 if (stage.Id < 2)
@@ -76,17 +77,18 @@ namespace SlotBattle.Core.Tests
                     continue; // 스테이지 1은 초보형도 85% 이상 이기는 튜토리얼이라 제외(설계서 2장)
                 }
                 int novice = 0, skilled = 0;
-                for (ulong seed = 1; seed <= games; seed++)
+                System.Threading.Tasks.Parallel.For(1, games + 1, i =>
                 {
+                    ulong seed = (ulong)i;
                     if (BattleRunner.Run(data, stage, TestHelper.Deck, seed, new NovicePlayer(SeededRandom.Derive(seed, 2))).Outcome == BattleOutcome.Win)
                     {
-                        novice++;
+                        System.Threading.Interlocked.Increment(ref novice);
                     }
                     if (BattleRunner.Run(data, stage, TestHelper.Deck, seed, new SkilledPlayer()).Outcome == BattleOutcome.Win)
                     {
-                        skilled++;
+                        System.Threading.Interlocked.Increment(ref skilled);
                     }
-                }
+                });
                 double gap = (double)(skilled - novice) / games;
                 TestContext.WriteLine("스테이지 " + stage.Id + ": 초보형 " + novice + ", 숙련형 " + skilled + " / " + games + ", 차이 " + (gap * 100).ToString("0.0") + "%p");
                 Assert.GreaterOrEqual(gap, 0.25, "스테이지 " + stage.Id);

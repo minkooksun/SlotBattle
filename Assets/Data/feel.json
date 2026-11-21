@@ -7,6 +7,35 @@
     "minTouchSize": 44,
     "marginColor": "#0B0F1A"
   },
+  "world": {
+    "fieldWidth": 10,
+    "cameraHeight": 19,
+    "cameraBack": 9,
+    "lookAtZ": 8.5,
+    "fov": 44,
+    "background": "#0E1424",
+    "ground": "#161E36",
+    "lane": "#22305A",
+    "laneEdge": "#3A4C86",
+    "dropZone": "#2F5BB0",
+    "rangeBand": "#3C7A6A",
+    "ambient": "#56607E",
+    "lightIntensity": 1.2,
+    "lightPitch": 55,
+    "lightYaw": -35,
+    "shadows": true,
+    "msaa": 4,
+    "maxTexture": 1600,
+    "robotFootprint": 2.6,
+    "airHeight": 2.4,
+    "castleDepth": 2.0,
+    "castleHeight": 1.1,
+    "lobArcHeight": 2.5,
+    "dropHeight": 6,
+    "walkStride": 1.6,
+    "walkSwing": 28,
+    "projectileSize": 0.5
+  },
   "slot": {
     "spinStartDelay": 0.05,
     "firstStop": 0.35,
@@ -33,9 +62,49 @@
     "knockbackTime": 0.1,
     "hitStop": 0.04,
     "damageNumberRise": 28,
-    "damageNumberTime": 0.6,
-    "castleShellTime": 0.22,
-    "castleShellSize": 10
+    "damageNumberTime": 0.6
+  },
+  "attack": {
+    "windup": {
+      "melee": 0.15,
+      "bolt": 0.15,
+      "lob": 0.2,
+      "explode": 0.2,
+      "charge": 0.2,
+      "castle": 0.2
+    },
+    "swarmStagger": 0.025,
+    "pullBack": 0.35,
+    "lunge": 0.7,
+    "chargeLunge": 1.4,
+    "strikeTime": 0.18,
+    "crouch": 0.7,
+    "swell": 1.7,
+    "slashSize": 2.4,
+    "slashArc": 0.45,
+    "slashTime": 0.25,
+    "bashRingSize": 2.4,
+    "bashTime": 0.28,
+    "stabLength": 1.4,
+    "stabTime": 0.16,
+    "ghostCount": 3,
+    "ghostTime": 0.3,
+    "muzzleFlashSize": 1.0,
+    "muzzleFlashTime": 0.14,
+    "boltLength": 28,
+    "boltWidth": 7,
+    "droneBoltSize": 9,
+    "droneBurstGap": 14,
+    "lobSize": 18,
+    "lobArcHeight": 60,
+    "shellSize": 14,
+    "sparkCount": 8,
+    "sparkSpeed": 160,
+    "sparkTime": 0.3,
+    "explosionTime": 0.45,
+    "explosionShake": 5,
+    "turretTurnSpeed": 14,
+    "turretRecoil": 4
   },
   "shake": {
     "tier3Attack": 6,
@@ -53,8 +122,21 @@
     "castleDebrisCount": 28
   },
   "unit": {
-    "sizeByTier": [33, 45, 63],
-    "glowByTier": [0, 0.35, 0.8],
+    "sizeByTier": [
+      33,
+      45,
+      63
+    ],
+    "sizeByTierRatio": [
+      0.16,
+      0.19,
+      0.23
+    ],
+    "glowByTier": [
+      0,
+      0.35,
+      0.8
+    ],
     "dragScale": 1.2,
     "landingTime": 0.25,
     "jackpotDropHeight": 160,

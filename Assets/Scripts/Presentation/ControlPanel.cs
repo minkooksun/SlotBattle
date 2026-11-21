@@ -193,6 +193,8 @@ namespace SlotBattle.Presentation
             Ui.PlaceCentered(_tierText.rectTransform, new Vector2(s.x / 2f, s.y - 7f), new Vector2(s.x, 12f));
         }
 
+        private Color _outlineColor = Palette.Player;
+
         public void SetContent(UnitDef def, int tier)
         {
             bool had = HasUnit;
@@ -210,15 +212,16 @@ namespace SlotBattle.Presentation
                 return;
             }
             var style = UnitStyle.Get(def.Id);
-            Ui.SetShape(_icon, style.Shape);
-            Ui.SetShape(_outline, style.Shape);
-            _icon.color = style.Color;
+            bool icon = UnitStyle.ApplyIcon(_icon, def.Id);
+            Ui.SetShape(_outline, icon ? Shape.RoundedSquare : style.Shape);
+            _outlineColor = icon ? Ui.WithAlpha(style.Color, 0.4f) : Palette.Player;
+            _outline.color = _outlineColor;
             _tierText.text = UnitStyle.TierName(tier);
             int tierIndex = Mathf.Clamp(tier - 1, 0, 2);
             float glow = _feel.Unit.GlowByTier.Length > tierIndex ? _feel.Unit.GlowByTier[tierIndex] : 0f;
             _glow.gameObject.SetActive(glow > 0f);
             _glow.color = Ui.WithAlpha(style.Color, glow * 0.8f);
-            float iconSize = 22f + tier * 4f;
+            float iconSize = (icon ? 34f : 22f) + tier * 4f;
             _icon.rectTransform.sizeDelta = new Vector2(iconSize, iconSize);
             _outline.rectTransform.sizeDelta = new Vector2(iconSize + 6f, iconSize + 6f);
             if (!had)
@@ -256,7 +259,7 @@ namespace SlotBattle.Presentation
             _icon.rectTransform.localScale = Vector3.one * pop * press;
             _outline.rectTransform.localScale = Vector3.one * pop * press;
             _icon.color = Ui.WithAlpha(_icon.color, alpha);
-            _outline.color = Ui.WithAlpha(Palette.Player, alpha);
+            _outline.color = Ui.WithAlpha(_outlineColor, _outlineColor.a * alpha);
             _denyT = Mathf.Max(0f, _denyT - dt);
             _frame.color = _denyT > 0f && Mathf.Sin(_denyT * 40f) > 0f ? Palette.Deny : Palette.PanelLight;
         }

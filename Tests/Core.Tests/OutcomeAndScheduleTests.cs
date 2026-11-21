@@ -131,7 +131,7 @@ namespace SlotBattle.Core.Tests
             Assert.AreEqual(2, first.Tier);
             Assert.AreEqual(1, first.Lane);
             Assert.AreEqual(250f * 2.2f, first.MaxHp, 1e-3);
-            Assert.AreEqual(20f - sim.Config.EnemySpawnDistance - 0.7f / 20f, first.Y, 1e-4, "적 성 앞에서 나와 한 틱 이동");
+            Assert.AreEqual(20f - sim.Config.EnemySpawnDistance, first.Y, 1e-4, "적 성 앞에서 나온다(실드봇은 방어진이라 움직이지 않음)");
 
             TestHelper.Ticks(sim, 20);
             Assert.AreEqual(1, sim.Units.Count(u => u.Def.Id == "shooter" && u.Lane == 0));

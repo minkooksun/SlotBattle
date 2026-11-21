@@ -297,7 +297,10 @@ namespace SlotBattle.Presentation
             _symbolOutline.gameObject.SetActive(def != null);
             if (def != null)
             {
-                Ui.SetShape(_symbolOutline, UnitStyle.Get(def.Id).Shape);
+                // 아이콘 뒤 받침: 유닛 색의 둥근 판(아이콘이 없으면 도형 테두리).
+                bool icon = UnitStyle.Icon(def.Id) != null;
+                Ui.SetShape(_symbolOutline, icon ? Shape.RoundedSquare : UnitStyle.Get(def.Id).Shape);
+                _symbolOutline.color = icon ? Ui.WithAlpha(UnitStyle.Get(def.Id).Color, 0.35f) : Palette.Player;
             }
             _ghostAbove.gameObject.SetActive(false);
             _ghostBelow.gameObject.SetActive(false);
@@ -411,9 +414,7 @@ namespace SlotBattle.Presentation
             {
                 return;
             }
-            var style = UnitStyle.Get(def.Id);
-            Ui.SetShape(image, style.Shape);
-            image.color = Ui.WithAlpha(style.Color, alpha);
+            UnitStyle.ApplyIcon(image, def.Id, alpha);
         }
 
         public void OnPointerClick(PointerEventData eventData)

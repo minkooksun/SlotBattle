@@ -40,7 +40,22 @@ namespace SlotBattle.Core.Battle
             Handlers = handlers;
             IsAir = def.HasKeyword(KeywordNames.Air);
             IsAntiAir = def.HasKeyword(KeywordNames.AntiAir);
+            for (int i = 0; i < handlers.Length; i++)
+            {
+                CanMove &= handlers[i].CanMove;
+                IsTaunting |= handlers[i].Taunts;
+                IsCharger |= handlers[i].Charges;
+            }
         }
+
+        /// <summary>스스로 움직이는가(방어진 유닛은 놓은 자리에 머문다).</summary>
+        public bool CanMove { get; } = true;
+        /// <summary>도발: 적이 먼저 노린다.</summary>
+        public bool IsTaunting { get; }
+        /// <summary>돌격 키워드가 있는가.</summary>
+        public bool IsCharger { get; }
+        /// <summary>돌격 중(적을 보고 달려드는 중). 이 상태로 첫 타격을 하면 피해가 세다.</summary>
+        public bool IsCharging { get; internal set; }
 
         public int Id { get; }
         public UnitDef Def { get; }

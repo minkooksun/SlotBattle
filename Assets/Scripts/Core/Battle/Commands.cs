@@ -21,9 +21,19 @@ namespace SlotBattle.Core.Battle
         public int[] LockedReels { get; }
     }
 
-    /// <summary>스핀 결과를 확정해 대기 칸에 넣는다.</summary>
+    /// <summary>
+    /// 스핀 결과를 확정해 유닛 1기를 대기 칸에 넣는다.
+    /// 세 칸이 모두 다르면 ChosenReel로 받을 칸을 고른다. 고를 필요가 없는 결과에서는 무시한다.
+    /// </summary>
     public sealed class ConfirmSpinCommand : BattleCommand
     {
+        public ConfirmSpinCommand(int chosenReel = -1)
+        {
+            ChosenReel = chosenReel;
+        }
+
+        /// <summary>받을 칸(0부터). 고르지 않았으면 -1.</summary>
+        public int ChosenReel { get; }
     }
 
     /// <summary>대기 칸의 유닛을 라인과 위치에 놓는다. Position은 내 성에서의 거리.</summary>
@@ -64,7 +74,11 @@ namespace SlotBattle.Core.Battle
         NoPendingSpin,
         RespinLimitReached,
         InvalidLock,
+        /// <summary>세 칸이 모두 달라 칸을 골라야 하는데 고르지 않았거나 없는 칸을 골랐다.</summary>
+        ChoiceRequired,
         NotEnoughQueueSpace,
+        /// <summary>전장 상한(maxFieldUnits)이 차서 놓을 수 없다.</summary>
+        FieldFull,
         InvalidQueueIndex,
         InvalidLane,
         InvalidPosition,

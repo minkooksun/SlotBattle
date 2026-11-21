@@ -15,17 +15,17 @@ namespace SlotBattle.Core.Tests
         {
             var ids = Data.Units.Where(u => u.Release == 1).Select(u => u.Id).ToArray();
             CollectionAssert.AreEquivalent(
-                new[] { "blade", "shooter", "shield", "swarm", "boom", "plasma", "dash", "drone" }, ids);
+                new[] { "blade", "shooter", "shield", "twin", "boom", "plasma", "dash", "drone" }, ids);
         }
 
         [TestCase("blade", "common", 100, 20, 1.0f, true, 0f, 1.0f)]
-        [TestCase("shooter", "common", 60, 15, 1.0f, false, 4.0f, 1.0f)]
+        [TestCase("shooter", "common", 60, 15, 1.0f, false, 6.0f, 1.0f)]
         [TestCase("shield", "common", 250, 8, 1.2f, true, 0f, 0.7f)]
-        [TestCase("swarm", "common", 35, 8, 0.7f, true, 0f, 1.4f)]
+        [TestCase("twin", "common", 50, 11, 0.7f, true, 0f, 1.4f)]
         [TestCase("boom", "common", 40, 60, 1.0f, true, 0f, 1.6f)]
-        [TestCase("plasma", "rare", 50, 30, 1.8f, false, 3.5f, 0.8f)]
+        [TestCase("plasma", "rare", 50, 30, 1.8f, false, 6.0f, 0.8f)]
         [TestCase("dash", "rare", 120, 25, 0.9f, true, 0f, 1.8f)]
-        [TestCase("drone", "rare", 70, 14, 0.8f, false, 2.5f, 1.3f)]
+        [TestCase("drone", "rare", 70, 14, 0.8f, false, 3.5f, 1.3f)]
         public void 유닛_수치는_설계서와_같다(string id, string rarity, float hp, float attack, float interval, bool melee, float range, float speed)
         {
             var u = Data.GetUnit(id);
@@ -48,8 +48,8 @@ namespace SlotBattle.Core.Tests
             Assert.IsTrue(Data.GetUnit("drone").HasKeyword("air"));
             Assert.AreEqual(1.0f, Data.GetUnit("plasma").SplashRadius);
             Assert.AreEqual(1.5f, Data.GetUnit("boom").SplashRadius);
-            Assert.IsTrue(Data.GetUnit("swarm").HasKeyword("swarm"));
-            Assert.AreEqual(3, Data.GetUnit("swarm").SwarmCount);
+            Assert.IsTrue(Data.GetUnit("twin").HasKeyword("swarm"));
+            Assert.AreEqual(2, Data.GetUnit("twin").SwarmCount);
         }
 
         [Test]
@@ -57,7 +57,7 @@ namespace SlotBattle.Core.Tests
         {
             var slot = Data.Slot;
             Assert.AreEqual(3, slot.ReelCount);
-            Assert.AreEqual(6, slot.SpinCost);
+            Assert.AreEqual(8, slot.SpinCost);
             Assert.AreEqual(1, slot.RespinCost);
             Assert.AreEqual(1, slot.RespinsPerSpin);
             Assert.AreEqual(1, slot.MaxLockedReels);
@@ -66,7 +66,7 @@ namespace SlotBattle.Core.Tests
             Assert.AreEqual(12, slot.RarityWeights["epic"]);
             CollectionAssert.AreEqual(new[] { 1.0f, 2.2f, 5.0f }, slot.TierMultipliers);
             Assert.AreEqual(5, slot.DeckSize);
-            CollectionAssert.AreEqual(new[] { "blade", "shooter", "shield", "swarm", "plasma" }, slot.StartingDeck);
+            CollectionAssert.AreEqual(new[] { "blade", "shooter", "shield", "twin", "plasma" }, slot.StartingDeck);
         }
 
         [Test]
@@ -77,10 +77,10 @@ namespace SlotBattle.Core.Tests
             Assert.AreEqual(2, b.LaneCount);
             Assert.AreEqual(20f, b.LaneLength);
             Assert.AreEqual(10f, b.PlayerZoneLength);
-            Assert.AreEqual(35000f, b.CastleHp);
-            Assert.AreEqual(2.5f, b.UnitHpScale);
+            Assert.AreEqual(9500f, b.CastleHp);
+            Assert.AreEqual(8f, b.UnitHpScale);
             Assert.AreEqual(2.5f, b.UnitAttackScale);
-            Assert.AreEqual(30f, b.CastleDefense.Damage);
+            Assert.AreEqual(80f, b.CastleDefense.Damage);
             Assert.AreEqual(1.0f, b.CastleDefense.AttackInterval);
             Assert.AreEqual(3.4f, b.CastleDefense.Range, 1e-6);
             Assert.AreEqual(5f, b.StartMana);
@@ -100,9 +100,9 @@ namespace SlotBattle.Core.Tests
         public void 스테이지_1부터_3까지_있다()
         {
             CollectionAssert.AreEqual(new[] { 1, 2, 3 }, Data.Stages.Select(s => s.Id).ToArray());
-            // 성 체력은 양쪽 같게(스테이지가 따로 정하지 않음), 적 레벨은 모두 1.0
+            // 성 체력은 양쪽 같게(스테이지가 따로 정하지 않음), 적 레벨은 설계서 3장 "스테이지"
             Assert.That(Data.Stages.All(s => s.EnemyCastleHp <= 0f));
-            CollectionAssert.AreEqual(new[] { 1f, 1f, 1f }, Data.Stages.Select(s => s.EnemyStatMultiplier).ToArray());
+            CollectionAssert.AreEqual(new[] { 1.3f, 1.8f, 1.3f }, Data.Stages.Select(s => s.EnemyStatMultiplier).ToArray());
             foreach (var stage in Data.Stages)
             {
                 Assert.IsNotEmpty(stage.Spawns);

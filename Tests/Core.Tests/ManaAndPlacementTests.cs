@@ -88,11 +88,11 @@ namespace SlotBattle.Core.Tests
             var sim = TestHelper.NewSim();
             var blade = TestHelper.Spawn(sim, "blade", Side.Player, 0, 2f);
             var dash = TestHelper.Spawn(sim, "dash", Side.Player, 1, 2f);
-            var enemy = TestHelper.Spawn(sim, "shield", Side.Enemy, 0, 19f);
+            var enemy = TestHelper.Spawn(sim, "plasma", Side.Enemy, 0, 19f);
             TestHelper.Ticks(sim, 20);
             Assert.AreEqual(3.0f, blade.Y, 1e-3, "블레이드봇 이동 속도 1.0");
-            Assert.AreEqual(3.8f, dash.Y, 1e-3, "대시봇 이동 속도 1.8");
-            Assert.AreEqual(18.3f, enemy.Y, 1e-3, "적은 반대 방향으로 이동, 실드봇 0.7");
+            Assert.AreEqual(3.8f, dash.Y, 1e-3, "대시봇 이동 속도 1.8(앞에 적이 없어 돌격하지 않음)");
+            Assert.AreEqual(18.2f, enemy.Y, 1e-3, "적은 반대 방향으로 이동, 플라즈마봇 0.8");
         }
     }
 }

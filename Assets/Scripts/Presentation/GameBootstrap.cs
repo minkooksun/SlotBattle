@@ -48,6 +48,8 @@ namespace SlotBattle.Presentation
             camera.clearFlags = CameraClearFlags.SolidColor;
             // 전장 비율과 맞지 않아 남는 곳은 여백 색으로 칠한다.
             camera.backgroundColor = Ui.Hex(feel.Layout.MarginColor);
+            // 3D 전장은 따로 그린 그림을 UI에 놓으므로 UI 카메라는 3D 레이어를 그리지 않는다.
+            camera.cullingMask = ~(1 << World3D.Layer);
 
             var canvasGo = new GameObject("Canvas", typeof(RectTransform));
             canvasGo.layer = 5;

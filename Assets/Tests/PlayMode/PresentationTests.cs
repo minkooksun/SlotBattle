@@ -171,18 +171,25 @@ namespace SlotBattle.PlayModeTests
             var pending = sim.PendingSpin;
             if (pending != null)
             {
-                bool allDifferent = pending.Summons.Count == pending.Symbols.Count;
-                if (allDifferent && pending.RespinsUsed == 0 && sim.Mana >= 1)
+                if (pending.RequiresChoice && pending.RespinsUsed == 0 && sim.Mana >= 1)
                 {
                     c.Control.Reels.Finish();
                     c.TapReel(0);
                     c.PressRespin();
                 }
+                c.Control.Reels.Finish();
+                if (sim.PendingSpin != null && sim.PendingSpin.RequiresChoice && c.LockedReel < 0)
+                {
+                    c.TapReel(0);
+                }
                 c.PressMain();
             }
             while (sim.Queue.Count > 0 && !sim.IsOver)
             {
-                c.PlaceFromQueue(0, lane, 8f);
+                if (c.PlaceFromQueue(0, lane, 8f) != CommandResult.Ok)
+                {
+                    break;
+                }
                 lane = 1 - lane;
             }
             if (sim.IsSkillReady)
@@ -245,11 +252,50 @@ namespace SlotBattle.PlayModeTests
         }
 
         [UnityTest]
+        public IEnumerator 원거리_공격은_날아가는_탄으로_보이고_늦춘_사건은_모두_보여준다()
+        {
+            var c = Create(Devices.IPhone15, new NullHapticService());
+            int lane = 0;
+            bool sawProjectile = false;
+            for (int i = 0; i < 3600 && !c.Sim.IsOver; i++)
+            {
+                Play(c, ref lane);
+                c.StepForTest(1f / 30f);
+                if (c.Field.FlyingProjectileCount > 0 && !sawProjectile)
+                {
+                    sawProjectile = true;
+                    // 탄이 날아가는 중의 화면을 남긴다.
+                    for (int k = 0; k < 3; k++)
+                    {
+                        c.StepForTest(1f / 30f);
+                    }
+                    string dir = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "Builds", "Screenshots"));
+                    Directory.CreateDirectory(dir);
+                    Capture(c, Path.Combine(dir, "Attack.png"));
+                }
+                if (i % 15 == 0)
+                {
+                    yield return null;
+                }
+                if (sawProjectile && i > 1800)
+                {
+                    break;
+                }
+            }
+            Assert.IsTrue(sawProjectile, "탄이 화면에 날아간다");
+
+            // 준비 동작(0.2초 이하)보다 길게 진행하면 늦춘 사망은 모두 보여 준 상태다.
+            c.StepForTest(0.25f);
+            Assert.AreEqual(0, c.Field.DyingCount);
+            Assert.AreEqual(c.Sim.Units.Count, c.Field.ViewCount);
+        }
+
+        [UnityTest]
         public IEnumerator 조립을_누르면_릴이_돌고_멈춘_뒤_Core가_정한_결과를_보여준다()
         {
             var c = Create(Devices.IPhone15, new NullHapticService());
             yield return null;
-            c.StepForTest(2f); // 스핀 비용만큼 에너지를 모은다
+            c.StepForTest(4f); // 스핀 비용만큼 에너지를 모은다
             Assert.IsTrue(c.Sim.CanSpin);
             c.PressMain();
             var pending = c.Sim.PendingSpin;
@@ -270,7 +316,7 @@ namespace SlotBattle.PlayModeTests
         }
 
         [UnityTest]
-        public IEnumerator 대기_칸이_모자라면_확정되지_않고_결과가_남는다()
+        public IEnumerator 세_칸이_모두_다르면_칸을_눌러_고른_유닛_1기만_받는다()
         {
             BattleController c = null;
             for (ulong seed = 1; seed <= 60; seed++)
@@ -280,36 +326,25 @@ namespace SlotBattle.PlayModeTests
                     c = Create(Devices.IPhone15, new NullHapticService());
                 }
                 c.Restart(seed);
-                // 배치하지 않고 대기 칸을 2칸 이상 채운다.
-                int guard = 0;
-                while (c.Sim.Queue.Count < 2 && guard++ < 10)
-                {
-                    c.StepForTest(6.5f);
-                    c.PressMain();
-                    c.PressMain();
-                }
-                if (c.Sim.Queue.Count >= c.Sim.QueueCapacity)
-                {
-                    continue;
-                }
-                c.StepForTest(6.5f);
+                c.StepForTest(4f);
                 c.PressMain();
                 var pending = c.Sim.PendingSpin;
-                if (pending == null || pending.Summons.Count <= c.Sim.QueueFreeSlots)
+                if (pending == null || !pending.RequiresChoice)
                 {
                     continue;
                 }
-                int queued = c.Sim.Queue.Count;
+                c.Control.Reels.Finish();
                 c.PressMain();
-                Assert.AreSame(pending, c.Sim.PendingSpin, "자리가 없으면 확정되지 않고 결과가 남는다");
-                Assert.AreEqual(queued, c.Sim.Queue.Count);
-                c.PlaceFromQueue(0, 0, 5f);
-                c.PlaceFromQueue(0, 1, 5f);
+                Assert.AreSame(pending, c.Sim.PendingSpin, "고르기 전에는 확정되지 않는다");
+                c.TapReel(1);
+                var expected = c.Sim.Deck[pending.Symbols[1]];
                 c.PressMain();
-                Assert.IsNull(c.Sim.PendingSpin, "자리를 만들면 확정된다");
+                Assert.IsNull(c.Sim.PendingSpin);
+                Assert.AreEqual(1, c.Sim.Queue.Count, "스핀 한 번에 1기");
+                Assert.AreSame(expected, c.Sim.Queue[0].Def, "누른 칸의 유닛");
                 yield break;
             }
-            Assert.Fail("조건을 만드는 시드를 찾지 못했습니다.");
+            Assert.Fail("세 칸이 모두 다른 시드를 찾지 못했습니다.");
         }
 
         [UnityTest]
@@ -345,6 +380,34 @@ namespace SlotBattle.PlayModeTests
         }
 
         [UnityTest]
+        public IEnumerator 설정에서_덱을_바꾸면_그_덱으로_새_판을_시작한다()
+        {
+            var c = Create(Devices.IPhone15, new NullHapticService());
+            c.Hud.SettingsButton.SimulateClick();
+            Assert.AreEqual(8, c.Settings.DeckButtons.Count, "1차 출시 8종");
+            Assert.IsFalse(System.Linq.Enumerable.Contains(c.DeckIds, "drone"));
+            PressableButton Button(string label)
+            {
+                foreach (var b in c.Settings.DeckButtons)
+                {
+                    if (b.Label.text == label)
+                    {
+                        return b;
+                    }
+                }
+                return null;
+            }
+            Button("트윈").SimulateClick();
+            Assert.AreEqual(0, c.Sim.CurrentTick, "4종일 때는 그대로");
+            Button("드론").SimulateClick();
+            yield return null;
+            Assert.IsTrue(System.Linq.Enumerable.Contains(c.DeckIds, "drone"));
+            Assert.IsFalse(System.Linq.Enumerable.Contains(c.DeckIds, "twin"));
+            Assert.IsTrue(System.Linq.Enumerable.Any(c.Sim.Deck, d => d.Id == "drone"), "새 판의 슬롯에 드론봇이 나온다");
+            Assert.AreEqual(0, c.Sim.CurrentTick, "새 판");
+        }
+
+        [UnityTest]
         public IEnumerator 아이폰과_아이패드_화면을_캡처한다()
         {
             string dir = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "Builds", "Screenshots"));
@@ -362,7 +425,7 @@ namespace SlotBattle.PlayModeTests
                 // 결과가 있는 조립 라인을 보여 주기 위해 한 번 더 돌린다.
                 if (c.Sim.PendingSpin == null)
                 {
-                    c.StepForTest(6.5f);
+                    c.StepForTest(9f);
                     c.PressMain();
                 }
                 Assert.IsNotNull(c.Sim.PendingSpin, "캡처에 조립 결과가 보이도록 스핀");
@@ -381,9 +444,45 @@ namespace SlotBattle.PlayModeTests
             }
         }
 
+        [UnityTest]
+        public IEnumerator 로봇_9종과_단계를_3D로_캡처한다()
+        {
+            var c = Create(Devices.IPhone15, new NullHapticService());
+            c.StepForTest(0.05f);
+            var world = c.Field.World;
+            var feel = TestData.Feel();
+            var data = TestData.Game();
+            string[] ids = { "blade", "shooter", "shield", "twin", "boom", "plasma", "dash", "drone" };
+            var models = new System.Collections.Generic.List<RobotModel>();
+            for (int i = 0; i < ids.Length; i++)
+            {
+                var side = i % 2 == 0 ? Side.Player : Side.Enemy;
+                var model = RobotFactory.Create(data.GetUnit(ids[i]), side, 1, world.Root, feel.World.FieldWidth * 0.16f, feel.World.RobotFootprint, feel.World.AirHeight);
+                model.Place(world.Ground(i % 2, 3f + (i / 2) * 4f), side == Side.Player, Vector2.one);
+                models.Add(model);
+            }
+            for (int t = 1; t <= 3; t++)
+            {
+                var model = RobotFactory.Create(data.GetUnit("blade"), Side.Player, t, world.Root, feel.World.FieldWidth * feel.Unit.SizeByTierRatio[t - 1], feel.World.RobotFootprint, feel.World.AirHeight);
+                model.Place(new Vector3(1.5f + (t - 1) * 3.5f, 0f, 18.5f), true, Vector2.one);
+                models.Add(model);
+            }
+            yield return null;
+            c.StepForTest(0.05f);
+            string dir = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "Builds", "Screenshots"));
+            Directory.CreateDirectory(dir);
+            Capture(c, Path.Combine(dir, "Robots.png"));
+            foreach (var model in models)
+            {
+                model.Destroy();
+            }
+            Assert.AreEqual(11, models.Count);
+        }
+
         private void Capture(BattleController c, string path)
         {
             Canvas.ForceUpdateCanvases();
+            c.Field.World.Camera.Render();
             c.Camera.Render();
             var previous = RenderTexture.active;
             RenderTexture.active = _texture;

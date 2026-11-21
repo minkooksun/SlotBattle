@@ -38,7 +38,8 @@ namespace SlotBattle.EditorTools
         private static void ConfigurePlayer()
         {
             PlayerSettings.companyName = "SlotBattle";
-            PlayerSettings.productName = "SlotBattle";
+            // 앱 이름은 트라이봇(설계서 1장). 실행 파일 이름은 영문으로 두고, 홈 화면 이름은 빌드 뒤 Info.plist에 넣는다.
+            PlayerSettings.productName = "TriBot";
             PlayerSettings.bundleVersion = "0.2.0";
 
             // 세로 고정.
@@ -84,6 +85,33 @@ namespace SlotBattle.EditorTools
             }
         }
 
+        private static void IncludeShader(string name)
+        {
+            var shader = Shader.Find(name);
+            if (shader == null)
+            {
+                Debug.LogWarning("[SlotBattle] 셰이더를 찾지 못했습니다: " + name);
+                return;
+            }
+            var settings = AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/GraphicsSettings.asset");
+            if (settings == null || settings.Length == 0)
+            {
+                return;
+            }
+            var so = new SerializedObject(settings[0]);
+            var list = so.FindProperty("m_AlwaysIncludedShaders");
+            for (int i = 0; i < list.arraySize; i++)
+            {
+                if (list.GetArrayElementAtIndex(i).objectReferenceValue == shader)
+                {
+                    return;
+                }
+            }
+            list.InsertArrayElementAtIndex(list.arraySize);
+            list.GetArrayElementAtIndex(list.arraySize - 1).objectReferenceValue = shader;
+            so.ApplyModifiedProperties();
+        }
+
         private static void ConfigureRenderPipeline()
         {
             var asset = AssetDatabase.LoadAssetAtPath<UniversalRenderPipelineAsset>(PipelinePath);
@@ -96,6 +124,8 @@ namespace SlotBattle.EditorTools
                 AssetDatabase.CreateAsset(asset, PipelinePath);
             }
             GraphicsSettings.defaultRenderPipeline = asset;
+            // 3D 전장의 재질은 코드에서 셰이더 이름으로 찾으므로 빌드에 반드시 넣는다(설계서 4장 "3D 전장").
+            IncludeShader("Universal Render Pipeline/Simple Lit");
             int current = QualitySettings.GetQualityLevel();
             for (int i = 0; i < QualitySettings.names.Length; i++)
             {

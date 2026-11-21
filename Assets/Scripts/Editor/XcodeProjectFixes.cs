@@ -17,6 +17,9 @@ namespace SlotBattle.EditorTools
     /// </summary>
     public static class XcodeProjectFixes
     {
+        /// <summary>홈 화면에 보이는 앱 이름(설계서 1장).</summary>
+        public const string DisplayName = "트라이봇";
+
         private static readonly Regex LinkIntoBuildState = new Regex(
             "ln -sF \\\\\"\\$PROJECT_DIR/(?<name>[A-Za-z0-9_]+)\\\\\" \\\\\"(?<dir>\\$CONFIGURATION_TEMP_DIR/artifacts/[^\\\\\"]+/buildstate)\\\\\"");
 
@@ -27,6 +30,7 @@ namespace SlotBattle.EditorTools
             {
                 return;
             }
+            SetDisplayName(Path.Combine(pathToBuiltProject, "Info.plist"));
             string pbxproj = Path.Combine(pathToBuiltProject, "Unity-iPhone.xcodeproj", "project.pbxproj");
             if (!File.Exists(pbxproj))
             {
@@ -46,6 +50,29 @@ namespace SlotBattle.EditorTools
                 File.WriteAllText(pbxproj, fixedText);
                 Debug.Log("[SlotBattle] Xcode 빌드 단계의 링크 명령 " + count + "개를 고쳤습니다(macOS ln -sF 문제).");
             }
+        }
+
+        /// <summary>Info.plist의 CFBundleDisplayName을 한글 앱 이름으로 바꾼다.</summary>
+        private static void SetDisplayName(string plistPath)
+        {
+            if (!File.Exists(plistPath))
+            {
+                return;
+            }
+            string text = File.ReadAllText(plistPath);
+            var key = new Regex("(<key>CFBundleDisplayName</key>\\s*<string>)[^<]*(</string>)");
+            string fixedText;
+            if (key.IsMatch(text))
+            {
+                fixedText = key.Replace(text, "${1}" + DisplayName + "${2}");
+            }
+            else
+            {
+                int at = text.IndexOf("<dict>", System.StringComparison.Ordinal) + "<dict>".Length;
+                fixedText = text.Insert(at, "\n\t<key>CFBundleDisplayName</key>\n\t<string>" + DisplayName + "</string>");
+            }
+            File.WriteAllText(plistPath, fixedText);
+            Debug.Log("[SlotBattle] 앱 표시 이름: " + DisplayName);
         }
 
         /// <summary>테스트용: 고친 결과 문자열.</summary>

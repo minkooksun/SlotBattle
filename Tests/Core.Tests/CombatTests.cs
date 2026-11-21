@@ -37,7 +37,7 @@ namespace SlotBattle.Core.Tests
         {
             var sim = TestHelper.NewSim();
             var shooter = TestHelper.Spawn(sim, "shooter", Side.Player, 0, 5f);
-            var enemy = TestHelper.SpawnFrozenEnemy(sim, "blade", 0, 9.5f);
+            var enemy = TestHelper.SpawnFrozenEnemy(sim, "blade", 0, 11.5f);
             sim.Tick();
             Assert.AreEqual(100f, enemy.Hp);
             Assert.AreEqual(5.05f, shooter.Y, 1e-4);
@@ -75,7 +75,7 @@ namespace SlotBattle.Core.Tests
             var enemy = TestHelper.SpawnFrozenEnemy(sim, "shield", 0, 18f);
             TestHelper.TickAndLand(sim);
             Assert.AreEqual(sim.EnemyCastle.MaxHp, sim.EnemyCastle.Hp);
-            Assert.AreEqual(235f, enemy.Hp);
+            Assert.AreEqual(250f - 15f * 1.5f, enemy.Hp, 1e-4, "슈터봇은 실드봇에 강하다(상성 피해)");
         }
 
         [Test]
@@ -104,7 +104,7 @@ namespace SlotBattle.Core.Tests
         {
             var sim = TestHelper.NewSim();
             TestHelper.Spawn(sim, "blade", Side.Player, 0, 5f, tier: 3);
-            var enemy = TestHelper.SpawnFrozenEnemy(sim, "swarm", 0, 5.5f);
+            var enemy = TestHelper.SpawnFrozenEnemy(sim, "twin", 0, 5.5f);
             sim.DrainEvents();
             sim.Tick();
             Assert.IsFalse(enemy.IsAlive);

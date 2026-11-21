@@ -1,6 +1,6 @@
 {
   "reelCount": 3,
-  "spinCost": 6,
+  "spinCost": 8,
   "respinCost": 1,
   "respinsPerSpin": 1,
   "maxLockedReels": 1,
@@ -19,7 +19,7 @@
     "blade",
     "shooter",
     "shield",
-    "swarm",
+    "twin",
     "plasma"
   ]
 }

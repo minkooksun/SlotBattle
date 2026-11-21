@@ -15,7 +15,10 @@ namespace SlotBattle.Core.Slot
 
         /// <summary>칸별 그림(덱 인덱스).</summary>
         public IReadOnlyList<int> Symbols => _symbols;
-        public IReadOnlyList<SummonEntry> Summons => _summons;
+        /// <summary>받을 수 있는 유닛 후보. 1개면 그것을 받고, 여러 개(세 칸이 모두 다름)면 칸 하나를 골라야 한다.</summary>
+        public IReadOnlyList<SummonEntry> Options => _summons;
+        /// <summary>세 칸이 모두 달라 확정할 때 칸 하나를 골라야 하는가.</summary>
+        public bool RequiresChoice => _summons.Count > 1;
         public bool IsJackpot { get; private set; }
         public int RespinsUsed { get; internal set; }
 

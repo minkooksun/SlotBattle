@@ -6,7 +6,7 @@ using UnityEngine.UI;
 namespace SlotBattle.Presentation
 {
     /// <summary>
-    /// 짧은 연출 모음: 피해 숫자, 파편, 충격파 고리, 화면 번쩍임, 날아가는 아이콘.
+    /// 짧은 연출 모음: 피해 숫자, 파편, 충격파 고리, 화면 번쩍임, 날아가는 아이콘, 잠깐 떴다 사라지는 도형(검 궤적, 잔상, 섬광).
     /// 모두 미리 만들어 둔 것을 돌려 써서 프레임이 끊기지 않게 한다.
     /// 시간은 화면 표시용(dt)만 쓰고 Core 진행과는 무관하다.
     /// </summary>
@@ -16,12 +16,14 @@ namespace SlotBattle.Presentation
         private const int MaxDebris = 160;
         private const int MaxRings = 24;
         private const int MaxFlyers = 8;
+        private const int MaxPops = 48;
 
         private readonly RectTransform _root;
         private readonly List<TextFx> _texts = new List<TextFx>();
         private readonly List<DebrisFx> _debris = new List<DebrisFx>();
         private readonly List<RingFx> _rings = new List<RingFx>();
         private readonly List<FlyerFx> _flyers = new List<FlyerFx>();
+        private readonly List<PopFx> _pops = new List<PopFx>();
         private readonly Image _flash;
         private float _flashT;
         private float _flashDuration;
@@ -29,6 +31,7 @@ namespace SlotBattle.Presentation
         private int _nextText;
         private int _nextDebris;
         private int _nextRing;
+        private int _nextPop;
 
         public FxLayer(string name, Transform parent)
         {
@@ -122,6 +125,36 @@ namespace SlotBattle.Presentation
             Ui.PlaceCentered(fx.Image.rectTransform, center, new Vector2(fromSize, fromSize));
         }
 
+        /// <summary>
+        /// 도형 하나가 잠깐 떠서 크기를 바꾸며 사라진다. fill이 1보다 작으면 위쪽에서 시계 방향으로 그만큼만 그린다(호 모양).
+        /// rotation은 도 단위(반시계 방향이 +).
+        /// </summary>
+        public void Pop(Shape shape, Color color, Vector2 center, Vector2 fromSize, Vector2 toSize, float rotation, float duration, float fill = 1f)
+        {
+            if (_pops.Count < MaxPops)
+            {
+                _pops.Add(new PopFx { Image = Ui.CreateImage("Pop", _root, shape, color) });
+            }
+            var fx = _pops[_nextPop % _pops.Count];
+            _nextPop++;
+            Ui.SetShape(fx.Image, shape);
+            fx.Image.type = Image.Type.Filled;
+            fx.Image.fillMethod = Image.FillMethod.Radial360;
+            fx.Image.fillOrigin = (int)Image.Origin360.Top;
+            fx.Image.fillClockwise = true;
+            fx.Image.fillAmount = Mathf.Clamp01(fill);
+            fx.Image.color = color;
+            fx.Image.gameObject.SetActive(true);
+            fx.Image.transform.SetAsLastSibling();
+            fx.From = fromSize;
+            fx.To = toSize;
+            fx.Color = color;
+            fx.Duration = Mathf.Max(0.01f, duration);
+            fx.T = 0f;
+            Ui.PlaceCentered(fx.Image.rectTransform, center, fromSize);
+            fx.Image.rectTransform.localRotation = Quaternion.Euler(0f, 0f, rotation);
+        }
+
         public void Flash(Color color, float alpha, float duration)
         {
             _flash.gameObject.SetActive(true);
@@ -133,7 +166,7 @@ namespace SlotBattle.Presentation
         }
 
         /// <summary>아이콘이 from에서 to로 포물선을 그리며 날아간다. 도착하면 onArrive.</summary>
-        public void Fly(Shape shape, Color color, Vector2 from, Vector2 to, float size, float duration, Action onArrive)
+        public void Fly(Shape shape, Color color, Vector2 from, Vector2 to, float size, float duration, Action onArrive, Sprite icon = null)
         {
             FlyerFx fx = null;
             foreach (var f in _flyers)
@@ -163,6 +196,12 @@ namespace SlotBattle.Presentation
             }
             Ui.SetShape(fx.Image, shape);
             fx.Image.color = color;
+            if (icon != null)
+            {
+                fx.Image.sprite = icon;
+                fx.Image.preserveAspect = true;
+                fx.Image.color = Color.white;
+            }
             fx.Image.gameObject.SetActive(true);
             fx.From = from;
             fx.To = to;
@@ -190,6 +229,7 @@ namespace SlotBattle.Presentation
             foreach (var fx in _texts) fx.Text.gameObject.SetActive(false);
             foreach (var fx in _debris) fx.Image.gameObject.SetActive(false);
             foreach (var fx in _rings) fx.Image.gameObject.SetActive(false);
+            foreach (var fx in _pops) fx.Image.gameObject.SetActive(false);
             foreach (var fx in _flyers)
             {
                 fx.OnArrive = null;
@@ -270,6 +310,24 @@ namespace SlotBattle.Presentation
                 fx.Image.color = Ui.WithAlpha(fx.Color, fx.Color.a * (1f - t));
             }
 
+            foreach (var fx in _pops)
+            {
+                if (!fx.Image.gameObject.activeSelf)
+                {
+                    continue;
+                }
+                fx.T += dt;
+                float t = fx.T / fx.Duration;
+                if (t >= 1f)
+                {
+                    fx.Image.gameObject.SetActive(false);
+                    continue;
+                }
+                float eased = 1f - (1f - t) * (1f - t);
+                fx.Image.rectTransform.sizeDelta = Vector2.Lerp(fx.From, fx.To, eased);
+                fx.Image.color = Ui.WithAlpha(fx.Color, fx.Color.a * (1f - t * t));
+            }
+
             if (_flash.gameObject.activeSelf)
             {
                 _flashT += dt;
@@ -332,6 +390,16 @@ namespace SlotBattle.Presentation
             public Vector2 Center;
             public float From;
             public float To;
+            public Color Color;
+            public float Duration;
+            public float T;
+        }
+
+        private sealed class PopFx
+        {
+            public Image Image;
+            public Vector2 From;
+            public Vector2 To;
             public Color Color;
             public float Duration;
             public float T;

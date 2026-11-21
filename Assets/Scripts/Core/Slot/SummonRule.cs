@@ -22,13 +22,34 @@ namespace SlotBattle.Core.Slot
     }
 
     /// <summary>
-    /// 소환 규칙: 같은 그림이 n칸이면 그 그림의 n단계 유닛 1기.
-    /// 3칸 기준으로 모두 다름 → 1단계 3기, 두 칸 같음 → 2단계 1기 + 1단계 1기, 세 칸 같음 → 3단계 1기.
-    /// 결과는 그림이 처음 나온 칸 순서로 정렬한다.
+    /// 소환 규칙(설계서 2장): 스핀 한 번에 유닛은 1기.
+    /// 같은 그림이 2칸 이상이면 가장 많이 나온 그림의 n단계 1기(나머지 칸은 버림).
+    /// 모두 다르면 각 칸의 1단계 유닛이 후보가 되고, 플레이어가 그중 하나를 고른다.
+    /// 후보는 칸 순서다(모두 다를 때 후보 i = 칸 i).
     /// </summary>
     public static class SummonRule
     {
+        /// <summary>받을 수 있는 유닛 후보. 1개면 그대로 받고, 여러 개면 하나를 골라야 한다.</summary>
         public static List<SummonEntry> Resolve(int[] symbols, int maxTier)
+        {
+            var groups = Group(symbols, maxTier);
+            int best = 0;
+            for (int i = 1; i < groups.Count; i++)
+            {
+                if (groups[i].Tier > groups[best].Tier)
+                {
+                    best = i;
+                }
+            }
+            if (groups[best].Tier >= 2)
+            {
+                return new List<SummonEntry> { groups[best] };
+            }
+            return groups;
+        }
+
+        /// <summary>그림별 묶음: 같은 그림이 n칸이면 n단계. 그림이 처음 나온 칸 순서.</summary>
+        private static List<SummonEntry> Group(int[] symbols, int maxTier)
         {
             var result = new List<SummonEntry>(symbols.Length);
             for (int i = 0; i < symbols.Length; i++)

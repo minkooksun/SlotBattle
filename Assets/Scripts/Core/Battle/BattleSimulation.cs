@@ -31,6 +31,8 @@ namespace SlotBattle.Core.Battle
         private readonly List<BattleEvent> _events = new List<BattleEvent>();
         private readonly List<LoggedCommand> _log = new List<LoggedCommand>();
         private readonly List<EnemySchedule.Entry> _dueSpawns = new List<EnemySchedule.Entry>();
+        // 전장 상한 때문에 아직 나오지 못한 적(시간표 순서대로 기다린다).
+        private readonly List<EnemySchedule.Entry> _waitingSpawns = new List<EnemySchedule.Entry>();
         private readonly List<PendingHit> _pendingHits = new List<PendingHit>();
         private readonly List<Unit> _selfDestroyed = new List<Unit>();
         private readonly AttackContext _ctx = new AttackContext();
@@ -117,6 +119,41 @@ namespace SlotBattle.Core.Battle
         public int SkillCooldownTicks { get; private set; }
         public bool IsSkillReady => SkillCooldownTicks <= 0 && Mana >= _cfg.CommanderSkill.ManaCost;
 
+        /// <summary>한 편이 전장에 동시에 둘 수 있는 기체 수. 0이면 제한 없음.</summary>
+        public int MaxFieldUnits => _cfg.MaxFieldUnits;
+
+        /// <summary>그 편이 지금 전장에 둔 기체 수.</summary>
+        public int FieldUnitCount(Side side)
+        {
+            int count = 0;
+            for (int i = 0; i < _units.Count; i++)
+            {
+                if (_units[i].Side == side)
+                {
+                    count++;
+                }
+            }
+            return count;
+        }
+
+        /// <summary>이 유닛 한 묶음을 놓을 자리가 전장에 있는가.</summary>
+        public bool HasFieldRoom(Side side, UnitDef def)
+        {
+            return _cfg.MaxFieldUnits <= 0 || FieldUnitCount(side) + GroupSize(def) <= _cfg.MaxFieldUnits;
+        }
+
+        /// <summary>한 묶음의 기체 수(트윈봇은 2).</summary>
+        public static int GroupSize(UnitDef def)
+        {
+            var handlers = KeywordRegistry.Resolve(def);
+            int count = 1;
+            for (int i = 0; i < handlers.Length; i++)
+            {
+                count = Math.Max(count, handlers[i].SpawnCount(def));
+            }
+            return count;
+        }
+
         public bool CanSpin => !IsOver && PendingSpin == null && _queue.Count < QueueCapacity && Mana >= _data.Slot.SpinCost;
 
         /// <summary>false로 두면 사건을 쌓지 않는다(BalanceSim처럼 연출이 필요 없을 때).</summary>
@@ -147,8 +184,8 @@ namespace SlotBattle.Core.Battle
                 case RespinCommand respin:
                     result = DoRespin(respin);
                     break;
-                case ConfirmSpinCommand _:
-                    result = DoConfirm();
+                case ConfirmSpinCommand confirm:
+                    result = DoConfirm(confirm);
                     break;
                 case PlaceUnitCommand place:
                     result = DoPlace(place);
@@ -240,23 +277,30 @@ namespace SlotBattle.Core.Battle
             return CommandResult.Ok;
         }
 
-        private CommandResult DoConfirm()
+        private CommandResult DoConfirm(ConfirmSpinCommand command)
         {
             if (PendingSpin == null)
             {
                 return CommandResult.NoPendingSpin;
             }
-            var summons = PendingSpin.Summons;
-            if (summons.Count > QueueFreeSlots)
+            var options = PendingSpin.Options;
+            var entry = options[0];
+            if (PendingSpin.RequiresChoice)
+            {
+                // 모두 다를 때 후보 i = 칸 i.
+                if (command.ChosenReel < 0 || command.ChosenReel >= options.Count)
+                {
+                    return CommandResult.ChoiceRequired;
+                }
+                entry = options[command.ChosenReel];
+            }
+            if (QueueFreeSlots < 1)
             {
                 return CommandResult.NotEnoughQueueSpace;
             }
-            foreach (var entry in summons)
-            {
-                _queue.Add(new QueuedUnit(_deck[entry.Symbol], entry.Tier));
-            }
+            _queue.Add(new QueuedUnit(_deck[entry.Symbol], entry.Tier));
             PendingSpin = null;
-            Emit(new UnitsQueuedEvent(CurrentTick, summons.Count));
+            Emit(new UnitsQueuedEvent(CurrentTick, 1));
             return CommandResult.Ok;
         }
 
@@ -275,6 +319,10 @@ namespace SlotBattle.Core.Battle
                 return CommandResult.InvalidPosition;
             }
             var queued = _queue[command.QueueIndex];
+            if (!HasFieldRoom(Side.Player, queued.Def))
+            {
+                return CommandResult.FieldFull;
+            }
             _queue.RemoveAt(command.QueueIndex);
             SpawnGroup(queued.Def, queued.Tier, Side.Player, command.Lane, command.Position, 1f);
             return CommandResult.Ok;
@@ -361,8 +409,12 @@ namespace SlotBattle.Core.Battle
         {
             _dueSpawns.Clear();
             _schedule.TakeDue(CurrentTick, _dueSpawns);
-            foreach (var entry in _dueSpawns)
+            _waitingSpawns.AddRange(_dueSpawns);
+            // 전장 상한이 차 있으면 자리가 날 때까지 시간표 순서대로 기다린다.
+            while (_waitingSpawns.Count > 0 && HasFieldRoom(Side.Enemy, _waitingSpawns[0].Unit))
             {
+                var entry = _waitingSpawns[0];
+                _waitingSpawns.RemoveAt(0);
                 float y = _cfg.LaneLength - entry.Distance;
                 SpawnGroup(entry.Unit, entry.Tier, Side.Enemy, entry.Lane, y, _enemyStatMultiplier);
             }
@@ -393,7 +445,14 @@ namespace SlotBattle.Core.Battle
 
                 if (target == null && !castleInRange)
                 {
-                    Move(unit, enemyCastle);
+                    if (unit.CanMove)
+                    {
+                        if (unit.IsCharger)
+                        {
+                            unit.IsCharging = SeesEnemyAhead(unit, _cfg.Charge.Range);
+                        }
+                        Move(unit, enemyCastle);
+                    }
                     continue;
                 }
                 if (unit.CooldownTicks > 0 || unit.Attack <= 0f)
@@ -443,13 +502,16 @@ namespace SlotBattle.Core.Battle
             {
                 Emit(new ExplosionEvent(CurrentTick, unit, unit.Lane, _ctx.ImpactY, _ctx.ExplosionRadius));
             }
+            // 돌격 뒤 첫 타격은 세다. 타격하면 돌격이 풀린다.
+            float damage = unit.IsCharging ? unit.Attack * _cfg.Charge.DamageMultiplier : unit.Attack;
+            unit.IsCharging = false;
             for (int h = 0; h < _ctx.UnitHits.Count; h++)
             {
-                _pendingHits.Add(new PendingHit(unit, _ctx.UnitHits[h], null, unit.Attack));
+                _pendingHits.Add(new PendingHit(unit, _ctx.UnitHits[h], null, damage));
             }
             if (_ctx.HitsCastle)
             {
-                _pendingHits.Add(new PendingHit(unit, null, enemyCastle, unit.Attack));
+                _pendingHits.Add(new PendingHit(unit, null, enemyCastle, damage));
             }
         }
 
@@ -606,7 +668,8 @@ namespace SlotBattle.Core.Battle
 
         private void Move(Unit unit, Castle enemyCastle)
         {
-            float step = unit.MoveSpeed / TickRate * unit.Direction;
+            float speed = unit.MoveSpeed * (unit.IsCharging ? _cfg.Charge.SpeedMultiplier : 1f);
+            float step = speed / TickRate * unit.Direction;
             float y = unit.Y + step;
             // 성을 지나치지 않는다.
             if (unit.Direction > 0)
@@ -620,11 +683,15 @@ namespace SlotBattle.Core.Battle
             unit.Y = y;
         }
 
-        /// <summary>같은 라인에서 사거리 안에 있고 공격할 수 있는 가장 가까운 적. 거리가 같으면 먼저 나온 유닛.</summary>
+        /// <summary>
+        /// 같은 라인에서 사거리 안에 있고 공격할 수 있는 가장 가까운 적. 거리가 같으면 먼저 나온 유닛.
+        /// 사거리 안에 도발 유닛이 있으면 도발 유닛 중 가장 가까운 쪽을 고른다(설계서 2장 "유닛 행동").
+        /// </summary>
         public Unit FindTarget(Unit unit)
         {
             Unit best = null;
             float bestDistance = float.MaxValue;
+            bool bestTaunts = false;
             for (int i = 0; i < _units.Count; i++)
             {
                 var other = _units[i];
@@ -633,18 +700,40 @@ namespace SlotBattle.Core.Battle
                     continue;
                 }
                 float distance = Math.Abs(other.Y - unit.Y);
-                if (distance > unit.Range || distance >= bestDistance)
+                if (distance > unit.Range || !CanAttack(unit, other))
                 {
                     continue;
                 }
-                if (!CanAttack(unit, other))
+                bool taunts = other.IsTaunting;
+                bool better = taunts != bestTaunts ? taunts : distance < bestDistance;
+                if (best != null && !better)
                 {
                     continue;
                 }
                 best = other;
                 bestDistance = distance;
+                bestTaunts = taunts;
             }
             return best;
+        }
+
+        /// <summary>앞쪽(적 성 방향) distance 안에 공격할 수 있는 적이 있는가(돌격 판단).</summary>
+        private bool SeesEnemyAhead(Unit unit, float distance)
+        {
+            for (int i = 0; i < _units.Count; i++)
+            {
+                var other = _units[i];
+                if (other.Side == unit.Side || other.Lane != unit.Lane || !other.IsAlive)
+                {
+                    continue;
+                }
+                float ahead = (other.Y - unit.Y) * unit.Direction;
+                if (ahead >= 0f && ahead <= distance && CanAttack(unit, other))
+                {
+                    return true;
+                }
+            }
+            return false;
         }
 
         /// <summary>attacker가 target을 공격할 수 있는가(키워드 규칙).</summary>
@@ -685,8 +774,14 @@ namespace SlotBattle.Core.Battle
                 var hit = _pendingHits[i];
                 if (hit.Target != null)
                 {
-                    hit.Target.Hp -= hit.Damage;
-                    Emit(new UnitHitEvent(CurrentTick, hit.Attacker, hit.Target, hit.Damage, hit.SourceCastle));
+                    float damage = hit.Damage;
+                    if (hit.Attacker != null && hit.Attacker.Def.IsStrongAgainst(hit.Target.Def))
+                    {
+                        // 상성 피해: 맞는 대상마다 따로 정한다(탄과 폭발도 같음). 건물에는 없다.
+                        damage *= _cfg.CounterMultiplier;
+                    }
+                    hit.Target.Hp -= damage;
+                    Emit(new UnitHitEvent(CurrentTick, hit.Attacker, hit.Target, damage, hit.SourceCastle));
                 }
                 else
                 {
@@ -766,11 +861,7 @@ namespace SlotBattle.Core.Battle
         {
             var spawned = new List<Unit>();
             var handlers = KeywordRegistry.Resolve(def);
-            int count = 1;
-            for (int i = 0; i < handlers.Length; i++)
-            {
-                count = Math.Max(count, handlers[i].SpawnCount(def));
-            }
+            int count = GroupSize(def);
             float tierMultiplier = _data.TierMultiplier(tier);
             float hp = def.Hp * tierMultiplier * statMultiplier * _cfg.UnitHpScale;
             float attack = def.Attack * tierMultiplier * statMultiplier * _cfg.UnitAttackScale;
@@ -852,6 +943,11 @@ namespace SlotBattle.Core.Battle
             hash = Fnv(hash, (ulong)CurrentTick);
             hash = Fnv(hash, (ulong)_manaMilli);
             hash = Fnv(hash, (ulong)SkillCooldownTicks);
+            hash = Fnv(hash, (ulong)_waitingSpawns.Count);
+            for (int i = 0; i < _units.Count; i++)
+            {
+                hash = Fnv(hash, _units[i].IsCharging ? 1UL : 0UL);
+            }
             hash = Fnv(hash, (ulong)Outcome);
             hash = Fnv(hash, FloatBits(PlayerCastle.Hp));
             hash = Fnv(hash, FloatBits(EnemyCastle.Hp));
