@@ -17,6 +17,7 @@ namespace SlotBattle.Core.Battle
         public const int TickRate = 20;
 
         private const int ManaScale = 1000;
+        private const float ArrivalEpsilon = 1e-4f;
 
         private readonly GameData _data;
         private readonly BattleConfig _cfg;
@@ -25,6 +26,7 @@ namespace SlotBattle.Core.Battle
         private readonly EnemySchedule _schedule;
         private readonly List<UnitDef> _deck;
         private readonly List<Unit> _units = new List<Unit>();
+        private readonly List<Projectile> _projectiles = new List<Projectile>();
         private readonly List<QueuedUnit> _queue = new List<QueuedUnit>();
         private readonly List<BattleEvent> _events = new List<BattleEvent>();
         private readonly List<LoggedCommand> _log = new List<LoggedCommand>();
@@ -34,6 +36,7 @@ namespace SlotBattle.Core.Battle
         private readonly AttackContext _ctx = new AttackContext();
         private readonly float _enemyStatMultiplier;
         private int _nextUnitId = 1;
+        private int _nextProjectileId = 1;
         private int _manaMilli;
         private int _maxManaMilli;
 
@@ -83,6 +86,8 @@ namespace SlotBattle.Core.Battle
         public SlotMachine SlotMachine => _slot;
         public IReadOnlyList<UnitDef> Deck => _deck;
         public IReadOnlyList<Unit> Units => _units;
+        /// <summary>날아가는 중인 탄. 화면은 이 위치를 그대로 그린다.</summary>
+        public IReadOnlyList<Projectile> Projectiles => _projectiles;
         public IReadOnlyList<QueuedUnit> Queue => _queue;
         public int QueueCapacity => _cfg.WaitingQueueCapacity;
         public int QueueFreeSlots => QueueCapacity - _queue.Count;
@@ -331,7 +336,13 @@ namespace SlotBattle.Core.Battle
                 SkillCooldownTicks--;
             }
             SpawnScheduledEnemies();
+            _pendingHits.Clear();
+            _selfDestroyed.Clear();
+            // 이미 날던 탄이 먼저 움직이고, 이번 틱에 쏜 탄은 다음 틱부터 움직인다.
+            UpdateProjectiles();
             UpdateUnits();
+            CastleFire(PlayerCastle);
+            CastleFire(EnemyCastle);
             ApplyHits();
             RemoveDead();
 
@@ -359,8 +370,6 @@ namespace SlotBattle.Core.Battle
 
         private void UpdateUnits()
         {
-            _pendingHits.Clear();
-            _selfDestroyed.Clear();
             for (int i = 0; i < _units.Count; i++)
             {
                 var unit = _units[i];
@@ -392,45 +401,159 @@ namespace SlotBattle.Core.Battle
                     continue;
                 }
 
-                _ctx.Reset(unit, enemyCastle);
-                if (target != null)
+                Castle targetCastle = target == null ? enemyCastle : null;
+                var type = unit.Def.AttackType;
+                Emit(new AttackStartedEvent(CurrentTick, unit, null, target, targetCastle, type));
+                switch (type)
                 {
-                    _ctx.UnitHits.Add(target);
-                    _ctx.ImpactY = target.Y;
-                }
-                else
-                {
-                    _ctx.HitsCastle = true;
-                    _ctx.ImpactY = enemyCastle.Y;
-                }
-                for (int h = 0; h < unit.Handlers.Length; h++)
-                {
-                    unit.Handlers[h].ModifyAttack(this, _ctx);
-                }
-                if (_ctx.IsExplosion)
-                {
-                    Emit(new ExplosionEvent(CurrentTick, unit, unit.Lane, _ctx.ImpactY, _ctx.ExplosionRadius));
-                }
-                for (int h = 0; h < _ctx.UnitHits.Count; h++)
-                {
-                    _pendingHits.Add(new PendingHit(unit, _ctx.UnitHits[h], null, unit.Attack));
-                }
-                if (_ctx.HitsCastle)
-                {
-                    _pendingHits.Add(new PendingHit(unit, null, enemyCastle, unit.Attack));
-                }
-                if (_ctx.SelfDestroy)
-                {
-                    _selfDestroyed.Add(unit);
+                    case AttackType.Bolt:
+                    case AttackType.Lob:
+                        Launch(unit, target, targetCastle);
+                        break;
+                    case AttackType.Explode:
+                        Explode(unit, enemyCastle);
+                        break;
+                    default:
+                        StrikeMelee(unit, target, enemyCastle);
+                        break;
                 }
                 unit.CooldownTicks = unit.AttackIntervalTicks;
             }
-
-            CastleFire(PlayerCastle);
-            CastleFire(EnemyCastle);
         }
 
-        /// <summary>성 포격: 사거리 안의 가장 가까운 적 유닛 하나(두 라인, 공중 포함). 거리가 같으면 먼저 나온 유닛.</summary>
+        /// <summary>근접·돌진: 이번 틱에 피해. 범위 키워드 같은 처리기가 맞는 대상을 더할 수 있다.</summary>
+        private void StrikeMelee(Unit unit, Unit target, Castle enemyCastle)
+        {
+            _ctx.Reset(unit, enemyCastle);
+            if (target != null)
+            {
+                _ctx.UnitHits.Add(target);
+                _ctx.ImpactY = target.Y;
+            }
+            else
+            {
+                _ctx.HitsCastle = true;
+                _ctx.ImpactY = enemyCastle.Y;
+            }
+            for (int h = 0; h < unit.Handlers.Length; h++)
+            {
+                unit.Handlers[h].ModifyAttack(this, _ctx);
+            }
+            if (_ctx.IsExplosion)
+            {
+                Emit(new ExplosionEvent(CurrentTick, unit, unit.Lane, _ctx.ImpactY, _ctx.ExplosionRadius));
+            }
+            for (int h = 0; h < _ctx.UnitHits.Count; h++)
+            {
+                _pendingHits.Add(new PendingHit(unit, _ctx.UnitHits[h], null, unit.Attack));
+            }
+            if (_ctx.HitsCastle)
+            {
+                _pendingHits.Add(new PendingHit(unit, null, enemyCastle, unit.Attack));
+            }
+        }
+
+        /// <summary>자폭: 자기 위치 반경 안의 적(공격할 수 있는 대상만)과 성에 이번 틱에 피해를 주고 파괴된다.</summary>
+        private void Explode(Unit unit, Castle enemyCastle)
+        {
+            float radius = unit.Def.SplashRadius;
+            _ctx.Reset(unit, enemyCastle);
+            _ctx.ImpactY = unit.Y;
+            CollectEnemiesInRadius(unit, unit.Y, radius, _ctx);
+            Emit(new ExplosionEvent(CurrentTick, unit, unit.Lane, unit.Y, radius));
+            for (int h = 0; h < _ctx.UnitHits.Count; h++)
+            {
+                _pendingHits.Add(new PendingHit(unit, _ctx.UnitHits[h], null, unit.Attack));
+            }
+            if (Math.Abs(enemyCastle.Y - unit.Y) <= radius)
+            {
+                _pendingHits.Add(new PendingHit(unit, null, enemyCastle, unit.Attack));
+            }
+            _selfDestroyed.Add(unit);
+        }
+
+        /// <summary>직사탄·곡사탄 발사. 피해는 도착할 때 준다.</summary>
+        private void Launch(Unit unit, Unit target, Castle targetCastle)
+        {
+            var def = unit.Def;
+            float targetY = target != null ? target.Y : targetCastle.Y;
+            int lane = unit.Lane;
+            var projectile = new Projectile(_nextProjectileId++, def.AttackType, unit.Side, lane, unit.Y,
+                unit, null, target, targetCastle, targetY, def.ProjectileSpeed, unit.Attack,
+                def.AttackType == AttackType.Lob ? def.SplashRadius : 0f);
+            _projectiles.Add(projectile);
+            Emit(new ProjectileLaunchedEvent(CurrentTick, projectile));
+        }
+
+        /// <summary>날고 있는 탄을 한 틱만큼 움직이고, 도착한 탄의 피해를 이번 틱 타격에 넣는다.</summary>
+        private void UpdateProjectiles()
+        {
+            if (_projectiles.Count == 0)
+            {
+                return;
+            }
+            for (int i = 0; i < _projectiles.Count; i++)
+            {
+                var p = _projectiles[i];
+                if (p.Type == AttackType.Bolt && p.TargetUnit != null)
+                {
+                    if (!p.TargetUnit.IsAlive)
+                    {
+                        // 대상이 먼저 죽으면 직사탄은 사라진다.
+                        Emit(new ProjectileArrivedEvent(CurrentTick, p, false));
+                        _projectiles[i] = null;
+                        continue;
+                    }
+                    p.TargetY = p.TargetUnit.Y;
+                }
+                float step = p.Speed / TickRate;
+                float remaining = p.TargetY - p.Y;
+                // 거리를 나눠 갈 때 생기는 부동소수점 오차로 한 틱 늦게 도착하지 않도록 작은 여유를 둔다.
+                if (Math.Abs(remaining) <= step + ArrivalEpsilon)
+                {
+                    p.Y = p.TargetY;
+                    Arrive(p);
+                    _projectiles[i] = null;
+                }
+                else
+                {
+                    p.Y += remaining > 0f ? step : -step;
+                }
+            }
+            _projectiles.RemoveAll(p => p == null);
+        }
+
+        private void Arrive(Projectile p)
+        {
+            Emit(new ProjectileArrivedEvent(CurrentTick, p, true));
+            if (p.Type == AttackType.Bolt)
+            {
+                if (p.TargetUnit != null)
+                {
+                    _pendingHits.Add(new PendingHit(p.Attacker, p.TargetUnit, null, p.Damage, p.SourceCastle));
+                }
+                else if (p.TargetCastle != null)
+                {
+                    _pendingHits.Add(new PendingHit(p.Attacker, null, p.TargetCastle, p.Damage, p.SourceCastle));
+                }
+                return;
+            }
+
+            // 곡사탄: 떨어진 자리 반경 안의 적에게 피해. 성은 성을 노린 탄만 맞는다.
+            Emit(new ExplosionEvent(CurrentTick, p.Attacker, p.Lane, p.Y, p.Radius));
+            _ctx.Reset(p.Attacker, p.TargetCastle);
+            CollectEnemiesInRadius(p.Attacker, p.Y, p.Radius, _ctx);
+            for (int h = 0; h < _ctx.UnitHits.Count; h++)
+            {
+                _pendingHits.Add(new PendingHit(p.Attacker, _ctx.UnitHits[h], null, p.Damage));
+            }
+            if (p.TargetCastle != null && Math.Abs(p.TargetCastle.Y - p.Y) <= p.Radius)
+            {
+                _pendingHits.Add(new PendingHit(p.Attacker, null, p.TargetCastle, p.Damage));
+            }
+        }
+
+        /// <summary>성 포격: 사거리 안의 가장 가까운 적 유닛 하나(두 라인, 공중 포함)에게 직사탄을 쏜다. 거리가 같으면 먼저 나온 유닛.</summary>
         private void CastleFire(Castle castle)
         {
             var defense = _cfg.CastleDefense;
@@ -451,7 +574,11 @@ namespace SlotBattle.Core.Battle
             {
                 return;
             }
-            _pendingHits.Add(new PendingHit(null, target, null, defense.Damage, castle));
+            Emit(new AttackStartedEvent(CurrentTick, null, castle, target, null, AttackType.Bolt));
+            var projectile = new Projectile(_nextProjectileId++, AttackType.Bolt, castle.Side, target.Lane, castle.Y,
+                null, castle, target, null, target.Y, defense.ProjectileSpeed, defense.Damage, 0f);
+            _projectiles.Add(projectile);
+            Emit(new ProjectileLaunchedEvent(CurrentTick, projectile));
             castle.CooldownTicks = Math.Max(1, SecondsToTicks(defense.AttackInterval));
         }
 
@@ -736,6 +863,13 @@ namespace SlotBattle.Core.Battle
             {
                 hash = Fnv(hash, (ulong)_deck.IndexOf(q.Def));
                 hash = Fnv(hash, (ulong)q.Tier);
+            }
+            foreach (var p in _projectiles)
+            {
+                hash = Fnv(hash, (ulong)p.Id);
+                hash = Fnv(hash, FloatBits(p.Y));
+                hash = Fnv(hash, FloatBits(p.TargetY));
+                hash = Fnv(hash, (ulong)(p.TargetUnit != null ? p.TargetUnit.Id : 0));
             }
             foreach (var unit in _units)
             {

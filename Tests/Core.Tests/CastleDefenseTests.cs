@@ -16,7 +16,7 @@ namespace SlotBattle.Core.Tests
             var sim = TestHelper.NewSim();
             var near = TestHelper.SpawnFrozenEnemy(sim, "shield", 1, 2.0f, tier: 3);
             var far = TestHelper.SpawnFrozenEnemy(sim, "shield", 0, 3.0f, tier: 3);
-            sim.Tick();
+            TestHelper.TickAndLand(sim);
             Assert.AreEqual(near.MaxHp - Damage, near.Hp, "두 라인 중 가장 가까운 적");
             Assert.AreEqual(far.MaxHp, far.Hp, "한 번에 하나만");
         }
@@ -27,7 +27,7 @@ namespace SlotBattle.Core.Tests
             var sim = TestHelper.NewSim();
             var outside = TestHelper.SpawnFrozenEnemy(sim, "shield", 0, Range + 0.05f, tier: 3);
             var edge = TestHelper.SpawnFrozenEnemy(sim, "shield", 1, Range, tier: 3);
-            sim.Tick();
+            TestHelper.TickAndLand(sim);
             Assert.AreEqual(outside.MaxHp, outside.Hp);
             Assert.AreEqual(edge.MaxHp - Damage, edge.Hp, "사거리 끝은 포함");
         }
@@ -37,7 +37,7 @@ namespace SlotBattle.Core.Tests
         {
             var sim = TestHelper.NewSim();
             var drone = TestHelper.SpawnFrozenEnemy(sim, "drone", 0, 2.0f, tier: 3);
-            sim.Tick();
+            TestHelper.TickAndLand(sim);
             Assert.AreEqual(drone.MaxHp - Damage, drone.Hp);
         }
 
@@ -45,12 +45,17 @@ namespace SlotBattle.Core.Tests
         public void 성_포격은_공격_간격마다_한_번이다()
         {
             var sim = TestHelper.NewSim();
-            var target = TestHelper.SpawnFrozenEnemy(sim, "shield", 0, 2.0f, tier: 3);
+            TestHelper.SpawnFrozenEnemy(sim, "shield", 0, 2.0f, tier: 3);
             int interval = (int)System.Math.Round(TestHelper.Data.Battle.CastleDefense.AttackInterval * BattleSimulation.TickRate);
-            TestHelper.Ticks(sim, interval);
-            Assert.AreEqual(target.MaxHp - Damage, target.Hp, "첫 간격 동안 1회");
+            int launches = 0;
+            for (int i = 0; i < interval; i++)
+            {
+                sim.Tick();
+                launches += sim.DrainEvents().OfType<ProjectileLaunchedEvent>().Count();
+            }
+            Assert.AreEqual(1, launches, "첫 간격 동안 1발");
             sim.Tick();
-            Assert.AreEqual(target.MaxHp - 2 * Damage, target.Hp, "간격이 지나면 다음 포격");
+            Assert.AreEqual(1, sim.DrainEvents().OfType<ProjectileLaunchedEvent>().Count(), "간격이 지나면 다음 포격");
         }
 
         [Test]
@@ -59,7 +64,7 @@ namespace SlotBattle.Core.Tests
             var sim = TestHelper.NewSim();
             var mine = TestHelper.Spawn(sim, "shield", Side.Player, 0, 17.5f, tier: 3);
             mine.StunTicks = 100000;
-            sim.Tick();
+            TestHelper.TickAndLand(sim);
             Assert.AreEqual(mine.MaxHp - Damage, mine.Hp);
         }
 
@@ -79,7 +84,7 @@ namespace SlotBattle.Core.Tests
             var sim = TestHelper.NewSim();
             var first = TestHelper.SpawnFrozenEnemy(sim, "shield", 1, 2.0f, tier: 3);
             var second = TestHelper.SpawnFrozenEnemy(sim, "shield", 0, 2.0f, tier: 3);
-            sim.Tick();
+            TestHelper.TickAndLand(sim);
             Assert.AreEqual(first.MaxHp - Damage, first.Hp);
             Assert.AreEqual(second.MaxHp, second.Hp);
         }
@@ -89,7 +94,7 @@ namespace SlotBattle.Core.Tests
         {
             var sim = TestHelper.NewSim();
             var tier1 = TestHelper.SpawnFrozenEnemy(sim, "shield", 0, 2.0f, tier: 1);
-            sim.Tick();
+            TestHelper.TickAndLand(sim);
             Assert.AreEqual(tier1.MaxHp - Damage, tier1.Hp);
         }
 
@@ -99,8 +104,15 @@ namespace SlotBattle.Core.Tests
             var sim = TestHelper.NewSim();
             var target = TestHelper.SpawnFrozenEnemy(sim, "shield", 0, 2.0f, tier: 3);
             sim.DrainEvents();
-            sim.Tick();
-            var hit = sim.DrainEvents().OfType<UnitHitEvent>().Single();
+            TestHelper.TickAndLand(sim);
+            var events = sim.DrainEvents();
+            var started = events.OfType<AttackStartedEvent>().Single();
+            Assert.AreSame(sim.PlayerCastle, started.SourceCastle);
+            Assert.AreEqual(SlotBattle.Core.Data.AttackType.Bolt, started.Type);
+            var launched = events.OfType<ProjectileLaunchedEvent>().Single();
+            Assert.AreSame(sim.PlayerCastle, launched.Projectile.SourceCastle);
+            Assert.IsTrue(events.OfType<ProjectileArrivedEvent>().Single().Hit);
+            var hit = events.OfType<UnitHitEvent>().Single();
             Assert.AreSame(sim.PlayerCastle, hit.SourceCastle);
             Assert.IsNull(hit.Attacker);
             Assert.AreSame(target, hit.Target);
@@ -108,12 +120,16 @@ namespace SlotBattle.Core.Tests
         }
 
         [Test]
-        public void 성_포격과_유닛_공격은_같은_틱에_동시에_처리된다()
+        public void 성_포탄이_도착한_틱의_피해는_유닛_공격과_동시에_처리된다()
         {
-            // 포격으로 쓰러질 유닛도 그 틱의 공격은 성에 들어간다.
+            // 포탄이 도착해 쓰러질 유닛도 그 틱의 공격은 성에 들어간다.
             var sim = TestHelper.NewSim();
             var blade = TestHelper.Spawn(sim, "blade", Side.Enemy, 0, 0.5f);
-            blade.Hp = Damage; // 이번 포격으로 쓰러질 만큼만 남긴다
+            blade.Hp = Damage; // 이번 포탄에 쓰러질 만큼만 남긴다
+            blade.CooldownTicks = 2; // 포탄이 도착하는 틱(1)에 마침 공격하도록 맞춘다
+            sim.Tick();
+            Assert.IsTrue(blade.IsAlive, "쏜 틱에는 아직 맞지 않는다");
+            Assert.AreEqual(sim.PlayerCastle.MaxHp, sim.PlayerCastle.Hp);
             sim.Tick();
             Assert.IsFalse(blade.IsAlive);
             Assert.AreEqual(sim.PlayerCastle.MaxHp - 20f, sim.PlayerCastle.Hp);
@@ -141,7 +157,7 @@ namespace SlotBattle.Core.Tests
             var sim = TestHelper.NewSim();
             sim.EnemyCastle.Hp = 10f;
             TestHelper.Spawn(sim, "shooter", Side.Player, 0, 16.5f);
-            sim.Tick();
+            TestHelper.TickAndLand(sim);
             Assert.AreEqual(BattleOutcome.Win, sim.Outcome);
             Assert.IsFalse(sim.EndedByTimeout);
         }

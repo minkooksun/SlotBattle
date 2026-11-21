@@ -151,7 +151,7 @@ namespace SlotBattle.Tools.BalanceSim
                     }
                 }
             }
-            if ((def.HasKeyword("splash") || def.HasKeyword("selfDestruct")) && lane.EnemyCount >= 3)
+            if ((def.HasKeyword("splash") || def.AttackType == AttackType.Lob || def.AttackType == AttackType.Explode) && lane.EnemyCount >= 3)
             {
                 score *= 1.5f;
             }
@@ -323,7 +323,7 @@ namespace SlotBattle.Tools.BalanceSim
             var cfg = sim.Config;
             float front = def.HasKeyword("antiAir") ? lane.EnemyFront : lane.EnemyGroundFront;
             float y;
-            if (def.HasKeyword("selfDestruct"))
+            if (def.AttackType == AttackType.Explode)
             {
                 y = front - 0.3f;
             }

@@ -26,7 +26,7 @@ namespace SlotBattle.Core.Tests
             var shooter = TestHelper.Spawn(sim, "shooter", Side.Player, 0, 5f);
             var far = TestHelper.SpawnFrozenEnemy(sim, "blade", 0, 8.5f);
             var near = TestHelper.SpawnFrozenEnemy(sim, "blade", 0, 7f);
-            sim.Tick();
+            TestHelper.TickAndLand(sim);
             Assert.AreEqual(85f, near.Hp);
             Assert.AreEqual(100f, far.Hp);
             Assert.AreEqual(5f, shooter.Y, "사거리 안에 적이 있으면 멈춰서 공격한다");
@@ -62,7 +62,7 @@ namespace SlotBattle.Core.Tests
         {
             var sim = TestHelper.NewSim();
             TestHelper.Spawn(sim, "shooter", Side.Player, 0, 16.5f);
-            sim.Tick();
+            TestHelper.TickAndLand(sim);
             Assert.AreEqual(sim.EnemyCastle.MaxHp - 15f, sim.EnemyCastle.Hp);
             Assert.AreEqual(1, sim.DrainEvents().OfType<CastleDamagedEvent>().Count());
         }
@@ -73,7 +73,7 @@ namespace SlotBattle.Core.Tests
             var sim = TestHelper.NewSimWithoutCastleFire();
             TestHelper.Spawn(sim, "shooter", Side.Player, 0, 16.5f);
             var enemy = TestHelper.SpawnFrozenEnemy(sim, "shield", 0, 18f);
-            sim.Tick();
+            TestHelper.TickAndLand(sim);
             Assert.AreEqual(sim.EnemyCastle.MaxHp, sim.EnemyCastle.Hp);
             Assert.AreEqual(235f, enemy.Hp);
         }
@@ -121,7 +121,7 @@ namespace SlotBattle.Core.Tests
             var enemy = TestHelper.Spawn(sim, "shooter", Side.Enemy, 0, 8f);
             mine.Hp = 10f;
             enemy.Hp = 10f;
-            sim.Tick();
+            TestHelper.TickAndLand(sim);
             Assert.IsFalse(mine.IsAlive);
             Assert.IsFalse(enemy.IsAlive);
         }

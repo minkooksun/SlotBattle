@@ -102,6 +102,12 @@ namespace SlotBattle.Core.Data
                         throw new InvalidOperationException(unit.Id + ": 처리기가 없는 키워드 " + keyword);
                     }
                 }
+                ValidateAttack(unit);
+            }
+            var defense = Battle.CastleDefense;
+            if (defense != null && defense.Damage > 0f && defense.ProjectileSpeed <= 0f)
+            {
+                throw new InvalidOperationException("성 포격: projectileSpeed가 0보다 커야 합니다.");
             }
             foreach (var stage in Stages)
             {
@@ -127,6 +133,38 @@ namespace SlotBattle.Core.Data
                 {
                     throw new InvalidOperationException("시작 덱에 알 수 없는 유닛: " + id);
                 }
+            }
+        }
+
+        private static void ValidateAttack(UnitDef unit)
+        {
+            switch (unit.AttackType)
+            {
+                case AttackType.Melee:
+                case AttackType.Charge:
+                    break;
+                case AttackType.Explode:
+                    RequirePositive(unit, unit.SplashRadius, "splashRadius");
+                    break;
+                case AttackType.Bolt:
+                    RequirePositive(unit, unit.Range, "range");
+                    RequirePositive(unit, unit.ProjectileSpeed, "projectileSpeed");
+                    break;
+                case AttackType.Lob:
+                    RequirePositive(unit, unit.Range, "range");
+                    RequirePositive(unit, unit.ProjectileSpeed, "projectileSpeed");
+                    RequirePositive(unit, unit.SplashRadius, "splashRadius");
+                    break;
+                default:
+                    throw new InvalidOperationException(unit.Id + ": attackType이 없습니다.");
+            }
+        }
+
+        private static void RequirePositive(UnitDef unit, float value, string field)
+        {
+            if (value <= 0f)
+            {
+                throw new InvalidOperationException(unit.Id + ": " + unit.AttackType + " 공격에는 " + field + "가 0보다 커야 합니다.");
             }
         }
 

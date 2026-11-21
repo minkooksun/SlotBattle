@@ -46,9 +46,7 @@ namespace SlotBattle.Core.Tests
         {
             Assert.IsTrue(Data.GetUnit("shooter").HasKeyword("antiAir"));
             Assert.IsTrue(Data.GetUnit("drone").HasKeyword("air"));
-            Assert.IsTrue(Data.GetUnit("plasma").HasKeyword("splash"));
             Assert.AreEqual(1.0f, Data.GetUnit("plasma").SplashRadius);
-            Assert.IsTrue(Data.GetUnit("boom").HasKeyword("selfDestruct"));
             Assert.AreEqual(1.5f, Data.GetUnit("boom").SplashRadius);
             Assert.IsTrue(Data.GetUnit("swarm").HasKeyword("swarm"));
             Assert.AreEqual(3, Data.GetUnit("swarm").SwarmCount);

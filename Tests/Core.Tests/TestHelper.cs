@@ -93,6 +93,19 @@ namespace SlotBattle.Core.Tests
             return unit;
         }
 
+        /// <summary>
+        /// 한 틱 진행해 공격을 내고, 날고 있는 탄이 모두 도착할 때까지 더 진행한다.
+        /// 원거리 공격의 피해는 탄이 도착할 때 들어가므로(설계서 2장 "공격 방식과 탄") 결과만 볼 때 쓴다.
+        /// </summary>
+        public static void TickAndLand(BattleSimulation sim, int maxTicks = 40)
+        {
+            sim.Tick();
+            for (int i = 0; i < maxTicks && sim.Projectiles.Count > 0 && !sim.IsOver; i++)
+            {
+                sim.Tick();
+            }
+        }
+
         public static void Ticks(BattleSimulation sim, int count)
         {
             for (int i = 0; i < count; i++)

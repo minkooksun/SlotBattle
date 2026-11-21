@@ -43,7 +43,7 @@ namespace SlotBattle.Core.Tests
             var shooter = TestHelper.Spawn(sim, "shooter", Side.Player, 0, 5f);
             var drone = TestHelper.SpawnFrozenEnemy(sim, "drone", 0, 8f);
             Assert.IsTrue(BattleSimulation.CanAttack(shooter, drone));
-            sim.Tick();
+            TestHelper.TickAndLand(sim);
             Assert.AreEqual(55f, drone.Hp);
         }
 
@@ -54,12 +54,12 @@ namespace SlotBattle.Core.Tests
             var drone = TestHelper.Spawn(sim, "drone", Side.Player, 0, 5f);
             var ground = TestHelper.SpawnFrozenEnemy(sim, "blade", 0, 7f);
             Assert.IsTrue(BattleSimulation.CanAttack(drone, ground));
-            sim.Tick();
+            TestHelper.TickAndLand(sim);
             Assert.AreEqual(86f, ground.Hp);
 
             var sim2 = TestHelper.NewSim();
             TestHelper.Spawn(sim2, "drone", Side.Player, 1, 18f);
-            sim2.Tick();
+            TestHelper.TickAndLand(sim2);
             Assert.AreEqual(sim2.EnemyCastle.MaxHp - 14f, sim2.EnemyCastle.Hp);
         }
 
@@ -70,7 +70,7 @@ namespace SlotBattle.Core.Tests
             var a = TestHelper.Spawn(sim, "drone", Side.Player, 0, 5f);
             var b = TestHelper.Spawn(sim, "drone", Side.Enemy, 0, 7f);
             Assert.IsTrue(BattleSimulation.CanAttack(a, b));
-            sim.Tick();
+            TestHelper.TickAndLand(sim);
             Assert.AreEqual(56f, a.Hp);
             Assert.AreEqual(56f, b.Hp);
         }
@@ -86,7 +86,7 @@ namespace SlotBattle.Core.Tests
             var inside = TestHelper.SpawnFrozenEnemy(sim, "shield", 0, 8.9f);
             var outside = TestHelper.SpawnFrozenEnemy(sim, "shield", 0, 9.5f);
             var otherLane = TestHelper.SpawnFrozenEnemy(sim, "shield", 1, 8f);
-            sim.Tick();
+            TestHelper.TickAndLand(sim);
             Assert.AreEqual(220f, target.Hp);
             Assert.AreEqual(220f, inside.Hp);
             Assert.AreEqual(250f, outside.Hp);
@@ -100,7 +100,7 @@ namespace SlotBattle.Core.Tests
             TestHelper.Spawn(sim, "plasma", Side.Player, 0, 5f);
             TestHelper.SpawnFrozenEnemy(sim, "shield", 0, 8f);
             var drone = TestHelper.SpawnFrozenEnemy(sim, "drone", 0, 8.2f);
-            sim.Tick();
+            TestHelper.TickAndLand(sim);
             Assert.AreEqual(70f, drone.Hp);
         }
 
