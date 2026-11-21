@@ -1,0 +1,28 @@
+{
+  "durationSeconds": 180,
+  "laneCount": 2,
+  "laneLength": 20,
+  "playerZoneLength": 10,
+  "castleHp": 20000,
+  "startMana": 5,
+  "maxMana": 10,
+  "manaRegenPerSecond": 1,
+  "finalPhaseSeconds": 30,
+  "finalPhaseRegenMultiplier": 2,
+  "waitingQueueCapacity": 4,
+  "meleeRange": 0.8,
+  "swarmSpacing": 0.3,
+  "enemySpawnDistance": 1.0,
+  "commanderSkill": {
+    "manaCost": 4,
+    "radius": 2.0,
+    "damage": 40,
+    "stunSeconds": 2,
+    "cooldownSeconds": 30
+  },
+  "castleDefense": {
+    "damage": 100,
+    "attackInterval": 1.0,
+    "range": 3.4
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "reelCount": 3,
+  "spinCost": 3,
+  "respinCost": 1,
+  "respinsPerSpin": 1,
+  "maxLockedReels": 1,
+  "rarityWeights": {
+    "common": 25,
+    "rare": 18,
+    "epic": 12
+  },
+  "tierMultipliers": [1.0, 2.2, 5.0],
+  "deckSize": 5,
+  "startingDeck": ["blade", "shooter", "shield", "swarm", "plasma"]
+}

@@ -1,0 +1,21 @@
+# Unity
+/[Ll]ibrary/
+/[Tt]emp/
+/[Oo]bj/
+/[Bb]uild/
+/[Bb]uilds/
+/[Ll]ogs/
+/[Uu]ser[Ss]ettings/
+/[Mm]emoryCaptures/
+*.csproj.user
+/*.sln
+/Assembly-CSharp*.csproj
+/SlotBattle.Core.csproj
+.vs/
+.idea/
+*.DS_Store
+
+# dotnet (Tests, Tools)
+**/bin/
+**/obj/
+TestResults/

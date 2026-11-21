@@ -1,0 +1,103 @@
+{
+  "units": [
+    {
+      "id": "blade",
+      "name": "블레이드봇",
+      "rarity": "common",
+      "hp": 100,
+      "attack": 20,
+      "attackInterval": 1.0,
+      "melee": true,
+      "moveSpeed": 1.0,
+      "keywords": [],
+      "release": 1
+    },
+    {
+      "id": "shooter",
+      "name": "슈터봇",
+      "rarity": "common",
+      "hp": 60,
+      "attack": 15,
+      "attackInterval": 1.0,
+      "range": 4.0,
+      "moveSpeed": 1.0,
+      "keywords": ["antiAir"],
+      "release": 1
+    },
+    {
+      "id": "shield",
+      "name": "실드봇",
+      "rarity": "common",
+      "hp": 250,
+      "attack": 8,
+      "attackInterval": 1.2,
+      "melee": true,
+      "moveSpeed": 0.7,
+      "keywords": [],
+      "release": 1
+    },
+    {
+      "id": "swarm",
+      "name": "스웜봇",
+      "rarity": "common",
+      "hp": 35,
+      "attack": 8,
+      "attackInterval": 0.7,
+      "melee": true,
+      "moveSpeed": 1.4,
+      "keywords": ["swarm"],
+      "swarmCount": 3,
+      "release": 1
+    },
+    {
+      "id": "boom",
+      "name": "붐봇",
+      "rarity": "common",
+      "hp": 40,
+      "attack": 60,
+      "attackInterval": 1.0,
+      "melee": true,
+      "moveSpeed": 1.6,
+      "keywords": ["selfDestruct"],
+      "splashRadius": 1.5,
+      "release": 1
+    },
+    {
+      "id": "plasma",
+      "name": "플라즈마봇",
+      "rarity": "rare",
+      "hp": 50,
+      "attack": 30,
+      "attackInterval": 1.8,
+      "range": 3.5,
+      "moveSpeed": 0.8,
+      "keywords": ["splash"],
+      "splashRadius": 1.0,
+      "release": 1
+    },
+    {
+      "id": "dash",
+      "name": "대시봇",
+      "rarity": "rare",
+      "hp": 120,
+      "attack": 25,
+      "attackInterval": 0.9,
+      "melee": true,
+      "moveSpeed": 1.8,
+      "keywords": [],
+      "release": 1
+    },
+    {
+      "id": "drone",
+      "name": "드론봇",
+      "rarity": "rare",
+      "hp": 70,
+      "attack": 14,
+      "attackInterval": 0.8,
+      "range": 2.5,
+      "moveSpeed": 1.3,
+      "keywords": ["air", "antiAir"],
+      "release": 1
+    }
+  ]
+}
