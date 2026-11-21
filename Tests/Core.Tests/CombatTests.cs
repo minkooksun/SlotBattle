@@ -63,18 +63,18 @@ namespace SlotBattle.Core.Tests
             var sim = TestHelper.NewSim();
             TestHelper.Spawn(sim, "shooter", Side.Player, 0, 16.5f);
             sim.Tick();
-            Assert.AreEqual(985f, sim.EnemyCastle.Hp);
+            Assert.AreEqual(sim.EnemyCastle.MaxHp - 15f, sim.EnemyCastle.Hp);
             Assert.AreEqual(1, sim.DrainEvents().OfType<CastleDamagedEvent>().Count());
         }
 
         [Test]
         public void 사거리_안에_적_유닛이_있으면_성보다_유닛을_먼저_공격한다()
         {
-            var sim = TestHelper.NewSim();
+            var sim = TestHelper.NewSimWithoutCastleFire();
             TestHelper.Spawn(sim, "shooter", Side.Player, 0, 16.5f);
             var enemy = TestHelper.SpawnFrozenEnemy(sim, "shield", 0, 18f);
             sim.Tick();
-            Assert.AreEqual(1000f, sim.EnemyCastle.Hp);
+            Assert.AreEqual(sim.EnemyCastle.MaxHp, sim.EnemyCastle.Hp);
             Assert.AreEqual(235f, enemy.Hp);
         }
 
@@ -84,18 +84,19 @@ namespace SlotBattle.Core.Tests
             var sim = TestHelper.NewSim();
             TestHelper.Spawn(sim, "blade", Side.Enemy, 1, 0.5f);
             sim.Tick();
-            Assert.AreEqual(980f, sim.PlayerCastle.Hp);
+            Assert.AreEqual(sim.PlayerCastle.MaxHp - 20f, sim.PlayerCastle.Hp);
         }
 
         [Test]
         public void 공격은_공격_간격마다_한_번이다()
         {
-            var sim = TestHelper.NewSim();
+            var sim = TestHelper.NewSimWithoutCastleFire();
+            float max = sim.EnemyCastle.MaxHp;
             TestHelper.Spawn(sim, "blade", Side.Player, 0, 19.5f);
             TestHelper.Ticks(sim, 20);
-            Assert.AreEqual(980f, sim.EnemyCastle.Hp, "1.0초 동안 1회");
+            Assert.AreEqual(max - 20f, sim.EnemyCastle.Hp, "1.0초 동안 1회");
             sim.Tick();
-            Assert.AreEqual(960f, sim.EnemyCastle.Hp, "1.0초가 지나면 다음 공격");
+            Assert.AreEqual(max - 40f, sim.EnemyCastle.Hp, "1.0초가 지나면 다음 공격");
         }
 
         [Test]

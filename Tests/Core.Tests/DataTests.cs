@@ -79,7 +79,10 @@ namespace SlotBattle.Core.Tests
             Assert.AreEqual(2, b.LaneCount);
             Assert.AreEqual(20f, b.LaneLength);
             Assert.AreEqual(10f, b.PlayerZoneLength);
-            Assert.AreEqual(1000f, b.CastleHp);
+            Assert.AreEqual(20000f, b.CastleHp);
+            Assert.AreEqual(100f, b.CastleDefense.Damage);
+            Assert.AreEqual(1.0f, b.CastleDefense.AttackInterval);
+            Assert.AreEqual(3.4f, b.CastleDefense.Range, 1e-6);
             Assert.AreEqual(5f, b.StartMana);
             Assert.AreEqual(10f, b.MaxMana);
             Assert.AreEqual(1f, b.ManaRegenPerSecond);
@@ -97,6 +100,7 @@ namespace SlotBattle.Core.Tests
         public void 스테이지_1부터_3까지_있다()
         {
             CollectionAssert.AreEqual(new[] { 1, 2, 3 }, Data.Stages.Select(s => s.Id).ToArray());
+            CollectionAssert.AreEqual(new[] { 30000f, 16000f, 6000f }, Data.Stages.Select(s => s.EnemyCastleHp).ToArray());
             foreach (var stage in Data.Stages)
             {
                 Assert.IsNotEmpty(stage.Spawns);

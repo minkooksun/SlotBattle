@@ -10,11 +10,11 @@ namespace SlotBattle.Core.Tests
     public class OutcomeAndScheduleTests
     {
         [Test]
-        public void 성_체력은_양쪽_모두_1000에서_시작한다()
+        public void 성_체력은_양쪽_모두_battle_json의_값에서_시작한다()
         {
             var sim = TestHelper.NewSim();
-            Assert.AreEqual(1000f, sim.PlayerCastle.Hp);
-            Assert.AreEqual(1000f, sim.EnemyCastle.Hp);
+            Assert.AreEqual(20000f, sim.PlayerCastle.Hp);
+            Assert.AreEqual(20000f, sim.EnemyCastle.Hp);
         }
 
         [Test]
@@ -22,7 +22,7 @@ namespace SlotBattle.Core.Tests
         {
             var sim = TestHelper.NewSim(TestHelper.EmptyStage(enemyCastleHp: 1500f));
             Assert.AreEqual(1500f, sim.EnemyCastle.MaxHp);
-            Assert.AreEqual(1000f, sim.PlayerCastle.MaxHp);
+            Assert.AreEqual(20000f, sim.PlayerCastle.MaxHp, "내 성은 그대로");
         }
 
         [Test]
@@ -63,18 +63,22 @@ namespace SlotBattle.Core.Tests
         [Test]
         public void 삼분이_지나면_성_체력_비율이_높은_쪽이_이긴다()
         {
-            var win = TestHelper.NewSim(TestHelper.EmptyStage(enemyCastleHp: 2000f));
-            win.PlayerCastle.Hp = 600f;  // 60%
-            win.EnemyCastle.Hp = 1000f;  // 50%
+            // 체력 값이 아니라 비율을 비교한다: 내 성 60% > 적 성 50%(2,000/4,000)
+            var win = TestHelper.NewSim(TestHelper.EmptyStage(enemyCastleHp: 4000f));
+            win.PlayerCastle.Hp = win.PlayerCastle.MaxHp * 0.6f;
+            win.EnemyCastle.Hp = 2000f;
+            Assert.Greater(win.EnemyCastle.Hp, 0f);
             TestHelper.Ticks(win, 180 * 20 - 1);
             Assert.IsFalse(win.IsOver, "3분 직전에는 아직 진행 중");
             win.Tick();
             Assert.AreEqual(BattleOutcome.Win, win.Outcome);
+            Assert.IsTrue(win.EndedByTimeout);
 
             var lose = TestHelper.NewSim();
-            lose.PlayerCastle.Hp = 400f;
+            lose.PlayerCastle.Hp = lose.PlayerCastle.MaxHp * 0.4f;
             TestHelper.Ticks(lose, 180 * 20);
             Assert.AreEqual(BattleOutcome.Lose, lose.Outcome);
+            Assert.IsTrue(lose.EndedByTimeout);
         }
 
         [Test]

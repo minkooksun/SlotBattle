@@ -87,6 +87,8 @@ namespace SlotBattle.Core.Battle
         public float MaxHp { get; }
         public float Hp { get; internal set; }
         public float Y { get; }
+        /// <summary>다음 포격까지 남은 틱.</summary>
+        public int CooldownTicks { get; internal set; }
         public bool IsDestroyed => Hp <= 0f;
         public float HpRatio => MaxHp <= 0f ? 0f : (Hp < 0f ? 0f : Hp) / MaxHp;
     }

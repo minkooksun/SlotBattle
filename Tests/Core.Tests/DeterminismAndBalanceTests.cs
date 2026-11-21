@@ -65,12 +65,16 @@ namespace SlotBattle.Core.Tests
         }
 
         [Test]
-        public void 같은_시드에서_숙련형의_승률이_초보형보다_25퍼센트포인트_이상_높다()
+        public void 같은_시드에서_숙련형의_승률이_초보형보다_25퍼센트포인트_이상_높다_스테이지2부터()
         {
             var data = TestHelper.Data;
             const int games = 200;
             foreach (var stage in data.Stages)
             {
+                if (stage.Id < 2)
+                {
+                    continue; // 스테이지 1은 초보형도 85% 이상 이기는 튜토리얼이라 제외(설계서 2장)
+                }
                 int novice = 0, skilled = 0;
                 for (ulong seed = 1; seed <= games; seed++)
                 {
@@ -87,6 +91,24 @@ namespace SlotBattle.Core.Tests
                 TestContext.WriteLine("스테이지 " + stage.Id + ": 초보형 " + novice + ", 숙련형 " + skilled + " / " + games + ", 차이 " + (gap * 100).ToString("0.0") + "%p");
                 Assert.GreaterOrEqual(gap, 0.25, "스테이지 " + stage.Id);
             }
+        }
+
+        [Test]
+        public void 스테이지1은_초보형도_85퍼센트_이상_이긴다()
+        {
+            var data = TestHelper.Data;
+            var stage = data.GetStage(1);
+            const int games = 300;
+            int wins = 0;
+            for (ulong seed = 1; seed <= games; seed++)
+            {
+                if (BattleRunner.Run(data, stage, TestHelper.Deck, seed, new NovicePlayer(SeededRandom.Derive(seed, 2))).Outcome == BattleOutcome.Win)
+                {
+                    wins++;
+                }
+            }
+            TestContext.WriteLine("스테이지 1 초보형: " + wins + " / " + games);
+            Assert.GreaterOrEqual((double)wins / games, 0.85);
         }
     }
 }

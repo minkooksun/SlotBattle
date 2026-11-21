@@ -49,8 +49,8 @@ namespace SlotBattle.Tools.BalanceSim
 
             Console.WriteLine("SlotBattle BalanceSim — 스테이지별 " + games + "판, 시드 " + baseSeed + "부터, 덱: " + string.Join(", ", deck));
             Console.WriteLine();
-            Console.WriteLine("스테이지          | 초보형 승률 | 평균 길이 | 숙련형 승률 | 평균 길이 | 차이(%p)");
-            Console.WriteLine("------------------+-------------+-----------+-------------+-----------+---------");
+            Console.WriteLine("스테이지          | 플레이어 | 승률    | 평균 길이 | 시간 초과 | 승/패/무");
+            Console.WriteLine("------------------+----------+---------+-----------+-----------+-------------");
 
             foreach (var sourceStage in data.Stages)
             {
@@ -74,14 +74,10 @@ namespace SlotBattle.Tools.BalanceSim
                 var novice = RunMany(data, stage, deck, games, baseSeed, seed => new NovicePlayer(SeededRandom.Derive(seed, 2)));
                 var skilled = RunMany(data, stage, deck, games, baseSeed, seed => new SkilledPlayer());
                 double gap = (skilled.WinRate - novice.WinRate) * 100.0;
-                Console.WriteLine(
-                    (stage.Id + ". " + stage.Name).PadRight(18) + "| " +
-                    Percent(novice.WinRate).PadLeft(11) + " | " + Seconds(novice.AverageSeconds).PadLeft(9) + " | " +
-                    Percent(skilled.WinRate).PadLeft(11) + " | " + Seconds(skilled.AverageSeconds).PadLeft(9) + " | " +
-                    gap.ToString("+0.0;-0.0").PadLeft(7));
-                Console.WriteLine(
-                    "".PadRight(18) + "|  승/패/무 " + novice.Wins + "/" + novice.Losses + "/" + novice.Draws +
-                    "  |  승/패/무 " + skilled.Wins + "/" + skilled.Losses + "/" + skilled.Draws);
+                string title = (stage.Id + ". " + stage.Name).PadRight(18);
+                Console.WriteLine(Row(title, "초보형", novice));
+                Console.WriteLine(Row("".PadRight(18), "숙련형", skilled));
+                Console.WriteLine("".PadRight(18) + "| 차이 " + gap.ToString("+0.0;-0.0") + "%p");
             }
             Console.WriteLine();
             Console.WriteLine("소요 시간: " + watch.Elapsed.TotalSeconds.ToString("0.0") + "초");
@@ -95,26 +91,34 @@ namespace SlotBattle.Tools.BalanceSim
             public int Draws;
             public double TotalSeconds;
             public int Games;
+            public int Timeouts;
 
             public double WinRate => Games == 0 ? 0 : (double)Wins / Games;
             public double AverageSeconds => Games == 0 ? 0 : TotalSeconds / Games;
+            public double TimeoutRate => Games == 0 ? 0 : (double)Timeouts / Games;
         }
 
         private static Summary RunMany(GameData data, StageDef stage, IReadOnlyList<string> deck, int games, ulong baseSeed, Func<ulong, IAutoPlayer> factory)
         {
             var outcomes = new BattleOutcome[games];
             var lengths = new double[games];
+            var timeouts = new bool[games];
             Parallel.For(0, games, i =>
             {
                 ulong seed = baseSeed + (ulong)i;
                 var sim = BattleRunner.Run(data, stage, deck, seed, factory(seed));
                 outcomes[i] = sim.Outcome;
                 lengths[i] = sim.ElapsedSeconds;
+                timeouts[i] = sim.EndedByTimeout;
             });
             var summary = new Summary { Games = games };
             for (int i = 0; i < games; i++)
             {
                 summary.TotalSeconds += lengths[i];
+                if (timeouts[i])
+                {
+                    summary.Timeouts++;
+                }
                 switch (outcomes[i])
                 {
                     case BattleOutcome.Win:
@@ -129,6 +133,13 @@ namespace SlotBattle.Tools.BalanceSim
                 }
             }
             return summary;
+        }
+
+        private static string Row(string title, string player, Summary s)
+        {
+            return title + "| " + player.PadRight(6) + " | " + Percent(s.WinRate).PadLeft(7) + " | " +
+                Seconds(s.AverageSeconds).PadLeft(9) + " | " + Percent(s.TimeoutRate).PadLeft(9) + " | " +
+                s.Wins + "/" + s.Losses + "/" + s.Draws;
         }
 
         private static string Percent(double rate)

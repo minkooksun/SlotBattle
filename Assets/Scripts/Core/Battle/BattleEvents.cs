@@ -60,17 +60,22 @@ namespace SlotBattle.Core.Battle
         public Unit Unit { get; }
     }
 
-    /// <summary>유닛이 타격을 받음. Attacker가 null이면 사령관 기술.</summary>
+    /// <summary>
+    /// 유닛이 타격을 받음. Attacker가 있으면 유닛의 공격, SourceCastle이 있으면 성 포격,
+    /// 둘 다 null이면 사령관 기술.
+    /// </summary>
     public sealed class UnitHitEvent : BattleEvent
     {
-        public UnitHitEvent(int tick, Unit attacker, Unit target, float damage) : base(tick)
+        public UnitHitEvent(int tick, Unit attacker, Unit target, float damage, Castle sourceCastle = null) : base(tick)
         {
             Attacker = attacker;
             Target = target;
             Damage = damage;
+            SourceCastle = sourceCastle;
         }
 
         public Unit Attacker { get; }
+        public Castle SourceCastle { get; }
         public Unit Target { get; }
         public float Damage { get; }
     }

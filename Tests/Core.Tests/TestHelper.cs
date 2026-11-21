@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using Newtonsoft.Json;
 using SlotBattle.Core.Battle;
 using SlotBattle.Core.Data;
 using SlotBattle.Tools.BalanceSim;
@@ -10,9 +12,31 @@ namespace SlotBattle.Core.Tests
     internal static class TestHelper
     {
         private static GameData _data;
+        private static GameData _noCastleFire;
 
         /// <summary>Assets/Data의 실제 JSON.</summary>
         public static GameData Data => _data ?? (_data = DataFiles.Load());
+
+        /// <summary>성 포격만 끈 데이터. 성 근처에서 다른 규칙을 떼어 볼 때 쓴다.</summary>
+        public static GameData DataWithoutCastleFire
+        {
+            get
+            {
+                if (_noCastleFire == null)
+                {
+                    string json = File.ReadAllText(Path.Combine(DataFiles.FindDataDirectory(), "battle.json"));
+                    var battle = JsonConvert.DeserializeObject<BattleConfig>(json);
+                    battle.CastleDefense.Damage = 0f;
+                    _noCastleFire = new GameData(Data.Units, Data.Slot, battle, Data.Stages);
+                }
+                return _noCastleFire;
+            }
+        }
+
+        public static BattleSimulation NewSimWithoutCastleFire(StageDef stage = null, ulong seed = 1)
+        {
+            return new BattleSimulation(DataWithoutCastleFire, stage ?? EmptyStage(), Deck, seed);
+        }
 
         public static IReadOnlyList<string> Deck => Data.Slot.StartingDeck;
 

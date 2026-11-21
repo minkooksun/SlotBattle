@@ -52,6 +52,15 @@ namespace SlotBattle.Core.Data
         public float CooldownSeconds;
     }
 
+    /// <summary>성 포격: 사거리 안의 가장 가까운 적 유닛 하나를 공격한다. 피해가 0이면 포격하지 않는다.</summary>
+    public sealed class CastleDefenseConfig
+    {
+        public float Damage;
+        public float AttackInterval = 1f;
+        /// <summary>성에서의 거리.</summary>
+        public float Range;
+    }
+
     public sealed class BattleConfig
     {
         public float DurationSeconds;
@@ -69,6 +78,7 @@ namespace SlotBattle.Core.Data
         public float SwarmSpacing;
         public float EnemySpawnDistance;
         public CommanderSkillConfig CommanderSkill = new CommanderSkillConfig();
+        public CastleDefenseConfig CastleDefense = new CastleDefenseConfig();
     }
 
     /// <summary>적 소환 시간표의 한 줄. repeatEvery가 0보다 크면 repeatUntil까지 반복한다.</summary>

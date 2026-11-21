@@ -60,7 +60,7 @@ namespace SlotBattle.Core.Tests
             var sim2 = TestHelper.NewSim();
             TestHelper.Spawn(sim2, "drone", Side.Player, 1, 18f);
             sim2.Tick();
-            Assert.AreEqual(986f, sim2.EnemyCastle.Hp);
+            Assert.AreEqual(sim2.EnemyCastle.MaxHp - 14f, sim2.EnemyCastle.Hp);
         }
 
         [Test]
@@ -132,7 +132,7 @@ namespace SlotBattle.Core.Tests
             var sim = TestHelper.NewSim();
             var boom = TestHelper.Spawn(sim, "boom", Side.Player, 1, 19.5f);
             sim.Tick();
-            Assert.AreEqual(940f, sim.EnemyCastle.Hp);
+            Assert.AreEqual(sim.EnemyCastle.MaxHp - 60f, sim.EnemyCastle.Hp);
             Assert.IsFalse(boom.IsAlive);
         }
 

@@ -99,6 +99,8 @@ namespace SlotBattle.Core.Battle
         public float RemainingSeconds => (float)(DurationTicks - CurrentTick) / TickRate;
         public bool IsOver => Outcome != BattleOutcome.None;
         public BattleOutcome Outcome { get; private set; }
+        /// <summary>3분이 다 되어 성 체력 비율로 끝났는가.</summary>
+        public bool EndedByTimeout { get; private set; }
 
         /// <summary>쓸 수 있는 정수 마나.</summary>
         public int Mana => _manaMilli / ManaScale;
@@ -423,6 +425,56 @@ namespace SlotBattle.Core.Battle
                 }
                 unit.CooldownTicks = unit.AttackIntervalTicks;
             }
+
+            CastleFire(PlayerCastle);
+            CastleFire(EnemyCastle);
+        }
+
+        /// <summary>성 포격: 사거리 안의 가장 가까운 적 유닛 하나(두 라인, 공중 포함). 거리가 같으면 먼저 나온 유닛.</summary>
+        private void CastleFire(Castle castle)
+        {
+            var defense = _cfg.CastleDefense;
+            if (defense == null || defense.Damage <= 0f)
+            {
+                return;
+            }
+            if (castle.CooldownTicks > 0)
+            {
+                castle.CooldownTicks--;
+            }
+            if (castle.CooldownTicks > 0)
+            {
+                return;
+            }
+            Unit target = FindCastleTarget(castle);
+            if (target == null)
+            {
+                return;
+            }
+            _pendingHits.Add(new PendingHit(null, target, null, defense.Damage, castle));
+            castle.CooldownTicks = Math.Max(1, SecondsToTicks(defense.AttackInterval));
+        }
+
+        public Unit FindCastleTarget(Castle castle)
+        {
+            float range = _cfg.CastleDefense != null ? _cfg.CastleDefense.Range : 0f;
+            Unit best = null;
+            float bestDistance = float.MaxValue;
+            for (int i = 0; i < _units.Count; i++)
+            {
+                var unit = _units[i];
+                if (unit.Side == castle.Side || !unit.IsAlive)
+                {
+                    continue;
+                }
+                float distance = Math.Abs(unit.Y - castle.Y);
+                if (distance <= range && distance < bestDistance)
+                {
+                    best = unit;
+                    bestDistance = distance;
+                }
+            }
+            return best;
         }
 
         private void Move(Unit unit, Castle enemyCastle)
@@ -507,7 +559,7 @@ namespace SlotBattle.Core.Battle
                 if (hit.Target != null)
                 {
                     hit.Target.Hp -= hit.Damage;
-                    Emit(new UnitHitEvent(CurrentTick, hit.Attacker, hit.Target, hit.Damage));
+                    Emit(new UnitHitEvent(CurrentTick, hit.Attacker, hit.Target, hit.Damage, hit.SourceCastle));
                 }
                 else
                 {
@@ -556,6 +608,7 @@ namespace SlotBattle.Core.Battle
             }
             if (CurrentTick >= DurationTicks)
             {
+                EndedByTimeout = true;
                 float mine = PlayerCastle.HpRatio;
                 float theirs = EnemyCastle.HpRatio;
                 if (mine > theirs)
@@ -675,6 +728,8 @@ namespace SlotBattle.Core.Battle
             hash = Fnv(hash, (ulong)Outcome);
             hash = Fnv(hash, FloatBits(PlayerCastle.Hp));
             hash = Fnv(hash, FloatBits(EnemyCastle.Hp));
+            hash = Fnv(hash, (ulong)PlayerCastle.CooldownTicks);
+            hash = Fnv(hash, (ulong)EnemyCastle.CooldownTicks);
             hash = Fnv(hash, _slotRng.State);
             hash = Fnv(hash, (ulong)_queue.Count);
             foreach (var q in _queue)
@@ -710,18 +765,20 @@ namespace SlotBattle.Core.Battle
 
         private struct PendingHit
         {
-            public PendingHit(Unit attacker, Unit target, Castle castle, float damage)
+            public PendingHit(Unit attacker, Unit target, Castle castle, float damage, Castle sourceCastle = null)
             {
                 Attacker = attacker;
                 Target = target;
                 Castle = castle;
                 Damage = damage;
+                SourceCastle = sourceCastle;
             }
 
             public readonly Unit Attacker;
             public readonly Unit Target;
             public readonly Castle Castle;
             public readonly float Damage;
+            public readonly Castle SourceCastle;
         }
     }
 }
