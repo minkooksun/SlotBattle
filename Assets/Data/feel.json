@@ -1,0 +1,76 @@
+{
+  "layout": {
+    "battlefieldAspect": 0.85,
+    "controlMaxWidth": 440,
+    "hudHeight": 44,
+    "controlHeight": 250,
+    "minTouchSize": 44,
+    "marginColor": "#0B0F1A"
+  },
+  "slot": {
+    "spinStartDelay": 0.05,
+    "firstStop": 0.35,
+    "stopInterval": 0.25,
+    "pairExtraDelay": 0.6,
+    "symbolsPerSecond": 22,
+    "overshoot": 0.18,
+    "settleTime": 0.12,
+    "jackpotPause": 0.3,
+    "jackpotFlashAlpha": 0.75,
+    "jackpotFlashTime": 0.35
+  },
+  "button": {
+    "pressScale": 0.92,
+    "releaseTime": 0.18,
+    "pulseScale": 1.06,
+    "pulsePeriod": 1.1,
+    "denyShakeDistance": 8,
+    "denyShakeTime": 0.3
+  },
+  "hit": {
+    "flashTime": 0.08,
+    "knockback": 0.12,
+    "knockbackTime": 0.1,
+    "hitStop": 0.04,
+    "damageNumberRise": 28,
+    "damageNumberTime": 0.6
+  },
+  "shake": {
+    "tier3Attack": 6,
+    "castleHit": 4,
+    "castleDestroyed": 18,
+    "jackpotLanding": 12,
+    "decay": 9
+  },
+  "death": {
+    "debrisCount": 6,
+    "debrisSpeed": 140,
+    "debrisTime": 0.45,
+    "castleSlowMotion": 0.35,
+    "castleSlowTime": 1.2,
+    "castleDebrisCount": 28
+  },
+  "unit": {
+    "sizeByTier": [22, 30, 42],
+    "glowByTier": [0, 0.35, 0.8],
+    "dragScale": 1.2,
+    "landingTime": 0.25,
+    "jackpotDropHeight": 160,
+    "flyToQueueTime": 0.35
+  },
+  "numbers": {
+    "countSpeed": 10,
+    "trailDelay": 0.35,
+    "trailSpeed": 1.6
+  },
+  "mana": {
+    "fillFlashTime": 0.18,
+    "spendBurstTime": 0.3
+  },
+  "haptics": {
+    "reelStop": "light",
+    "jackpot": "heavy",
+    "castleDestroyed": "heavy",
+    "unitLanding": "medium"
+  }
+}

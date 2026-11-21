@@ -453,12 +453,14 @@ Claude Code는 코드와 빌드 스크립트까지만 만들고, 아래 일은 U
 3. Unity Hub에서 Unity 6 LTS에 iOS Build Support 모듈을 추가합니다.
 4. Unity Hub의 "Add project from disk"로 저장소 폴더를 엽니다. Unity가 ProjectSettings와 Packages 폴더를 만듭니다.
 5. Package Manager에서 `com.unity.nuget.newtonsoft-json`을 설치하고, Console에 Core 컴파일 오류가 없는지 확인합니다.
-6. 번들 ID(예: `com.<본인 도메인>.slotbattle`)와 Apple 팀 ID를 정해 Claude Code에 알려줍니다. 빌드 스크립트가 이 값을 씁니다.
+6. 번들 ID(기본값 `com.minkooksun.slotbattle`)와 Apple 팀 ID를 정합니다. 바꾸려면 환경 변수 `SLOTBATTLE_BUNDLE_ID`, `SLOTBATTLE_TEAM_ID`를 주고 빌드합니다. 팀 ID를 주지 않으면 Xcode에서 팀을 고릅니다(10번).
 7. Unity를 닫고, 새로 생긴 ProjectSettings, Packages 폴더를 커밋합니다.
+
+참고: 4·5·7번(프로젝트 열기, 패키지 설치, 설정 폴더 커밋)은 M2에서 Claude Code가 batchmode로 처리했습니다. 설치된 Unity는 6000.0.1f1이며, 이 버전의 Xcode 빌드 단계 문제(macOS 26의 `ln -sF`)는 빌드 후처리(`XcodeProjectFixes`)로 고칩니다. 최신 Unity 6000.0 LTS로 올리는 것을 권장합니다.
 
 **M2 빌드마다**
 
-8. 명령줄 빌드 스크립트(또는 에디터 메뉴)로 Xcode 프로젝트를 만듭니다. 실행 명령은 M2에서 Claude Code가 알려줍니다.
+8. Unity 에디터를 닫은 상태에서 저장소 폴더에서 `Tools/build-ios.sh --open`을 실행합니다. 설정 적용, Bootstrap 씬 생성, Xcode 프로젝트 생성(`Builds/iOS/Unity-iPhone.xcodeproj`)까지 한 번에 하고 Xcode를 엽니다. 에디터 안에서는 메뉴 SlotBattle > iOS Xcode 프로젝트 만들기로 같은 일을 할 수 있습니다.
 9. 만들어진 Xcode 프로젝트를 엽니다(`.xcworkspace`가 있으면 그것을 엽니다).
 10. 처음 한 번은 Signing & Capabilities에서 "Automatically manage signing"을 켜고 팀을 고릅니다.
 11. iPhone 또는 iPad를 케이블로 연결하고, 기기에서 개발자 모드를 켠 뒤(설정 > 개인정보 보호 및 보안 > 개발자 모드) 이 Mac을 신뢰합니다.

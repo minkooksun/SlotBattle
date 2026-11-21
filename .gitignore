@@ -10,7 +10,7 @@
 *.csproj.user
 /*.sln
 /Assembly-CSharp*.csproj
-/SlotBattle.Core.csproj
+/*.csproj
 .vs/
 .idea/
 *.DS_Store
@@ -19,3 +19,10 @@
 **/bin/
 **/obj/
 TestResults/
+
+# 빌드 결과물
+/Builds/
+/Logs/
+
+# 에디터 설정
+.vscode/
