@@ -15,9 +15,16 @@ namespace SlotBattle.Tools.BalanceSim
     /// </summary>
     public sealed class SkilledPlayer : IAutoPlayer
     {
-        private const float DangerLine = 12f;
-        private const int PushSize = 3;
-        private const float DefendRatio = 1.1f;
+        // 전략 값. 조정 실험용으로 환경 변수(SKILLED_DANGER, SKILLED_PUSH, SKILLED_DEFEND)로 바꿀 수 있다.
+        private static readonly float DangerLine = EnvFloat("SKILLED_DANGER", 8f);
+        private static readonly int PushSize = (int)EnvFloat("SKILLED_PUSH", 2f);
+        private static readonly float DefendRatio = EnvFloat("SKILLED_DEFEND", 2f);
+
+        private static float EnvFloat(string name, float fallback)
+        {
+            string value = Environment.GetEnvironmentVariable(name);
+            return float.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float parsed) ? parsed : fallback;
+        }
 
         /// <summary>설계서 2장의 상성표: (내 유닛, 적 유닛) → 유리함.</summary>
         private static readonly Dictionary<string, string[]> StrongAgainst = new Dictionary<string, string[]>

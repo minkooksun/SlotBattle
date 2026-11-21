@@ -77,6 +77,9 @@ namespace SlotBattle.Core.Data
         public float MeleeRange;
         public float SwarmSpacing;
         public float EnemySpawnDistance;
+        /// <summary>유닛 능력치 배율(양쪽 모두). units.json은 유닛끼리의 비율을 정하는 기준값이다.</summary>
+        public float UnitHpScale = 1f;
+        public float UnitAttackScale = 1f;
         public CommanderSkillConfig CommanderSkill = new CommanderSkillConfig();
         public CastleDefenseConfig CastleDefense = new CastleDefenseConfig();
     }

@@ -7,8 +7,10 @@ namespace SlotBattle.Core.Tests
     /// <summary>설계서 2장 사령관 기술: EMP 폭격.</summary>
     public class CommanderSkillTests
     {
+        private static float Damage => TestHelper.Data.Battle.CommanderSkill.Damage;
+
         [Test]
-        public void EMP는_지정한_위치_반경_2_안의_적에게_피해_40을_준다()
+        public void EMP는_지정한_위치_반경_2_안의_적에게_설정된_피해를_준다()
         {
             var sim = TestHelper.NewSim();
             sim.SetManaForTest(10);
@@ -19,8 +21,8 @@ namespace SlotBattle.Core.Tests
             var mine = TestHelper.Spawn(sim, "shield", Side.Player, 0, 11f);
 
             Assert.AreEqual(CommandResult.Ok, sim.Execute(new UseCommanderSkillCommand(0, 12f)));
-            Assert.AreEqual(210f, center.Hp);
-            Assert.AreEqual(210f, edge.Hp);
+            Assert.AreEqual(250f - Damage, center.Hp);
+            Assert.AreEqual(250f - Damage, edge.Hp);
             Assert.AreEqual(250f, outside.Hp);
             Assert.AreEqual(250f, otherLane.Hp);
             Assert.AreEqual(250f, mine.Hp, "아군은 맞지 않는다");
@@ -31,16 +33,16 @@ namespace SlotBattle.Core.Tests
         public void EMP는_공중_유닛에게도_맞는다()
         {
             var sim = TestHelper.NewSim();
-            var drone = TestHelper.Spawn(sim, "drone", Side.Enemy, 1, 12f);
+            var drone = TestHelper.Spawn(sim, "drone", Side.Enemy, 1, 12f, tier: 3);
             sim.Execute(new UseCommanderSkillCommand(1, 12f));
-            Assert.AreEqual(30f, drone.Hp);
+            Assert.AreEqual(drone.MaxHp - Damage, drone.Hp);
         }
 
         [Test]
         public void EMP를_맞은_적은_2초_동안_움직이지도_공격하지도_않는다()
         {
             var sim = TestHelper.NewSim();
-            var enemy = TestHelper.Spawn(sim, "blade", Side.Enemy, 0, 5.5f);
+            var enemy = TestHelper.Spawn(sim, "blade", Side.Enemy, 0, 5.5f, tier: 2);
             var mine = TestHelper.Spawn(sim, "shield", Side.Player, 0, 5f);
             mine.StunTicks = 100000; // 내 유닛은 가만히 두어 적의 행동만 본다
             sim.Execute(new UseCommanderSkillCommand(0, 5.5f));
@@ -48,10 +50,10 @@ namespace SlotBattle.Core.Tests
             Assert.AreEqual(250f, mine.Hp, "기절 중에는 공격하지 않는다");
             Assert.AreEqual(0, enemy.StunTicks);
             sim.Tick();
-            Assert.AreEqual(230f, mine.Hp, "2초가 지나면 다시 공격한다");
+            Assert.AreEqual(250f - enemy.Attack, mine.Hp, "2초가 지나면 다시 공격한다");
 
             var sim2 = TestHelper.NewSim();
-            var walker = TestHelper.Spawn(sim2, "blade", Side.Enemy, 0, 15f);
+            var walker = TestHelper.Spawn(sim2, "blade", Side.Enemy, 0, 15f, tier: 2);
             sim2.Execute(new UseCommanderSkillCommand(0, 15f));
             TestHelper.Ticks(sim2, 40);
             Assert.AreEqual(15f, walker.Y, "기절 중에는 움직이지 않는다");

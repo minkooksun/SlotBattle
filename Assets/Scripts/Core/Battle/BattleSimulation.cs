@@ -645,8 +645,8 @@ namespace SlotBattle.Core.Battle
                 count = Math.Max(count, handlers[i].SpawnCount(def));
             }
             float tierMultiplier = _data.TierMultiplier(tier);
-            float hp = def.Hp * tierMultiplier * statMultiplier;
-            float attack = def.Attack * tierMultiplier * statMultiplier;
+            float hp = def.Hp * tierMultiplier * statMultiplier * _cfg.UnitHpScale;
+            float attack = def.Attack * tierMultiplier * statMultiplier * _cfg.UnitAttackScale;
             float range = def.Melee ? _cfg.MeleeRange : def.Range;
             int interval = Math.Max(1, SecondsToTicks(def.AttackInterval));
             int direction = side == Side.Player ? 1 : -1;

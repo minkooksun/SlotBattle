@@ -59,7 +59,7 @@ namespace SlotBattle.Core.Tests
         {
             var slot = Data.Slot;
             Assert.AreEqual(3, slot.ReelCount);
-            Assert.AreEqual(3, slot.SpinCost);
+            Assert.AreEqual(6, slot.SpinCost);
             Assert.AreEqual(1, slot.RespinCost);
             Assert.AreEqual(1, slot.RespinsPerSpin);
             Assert.AreEqual(1, slot.MaxLockedReels);
@@ -79,8 +79,10 @@ namespace SlotBattle.Core.Tests
             Assert.AreEqual(2, b.LaneCount);
             Assert.AreEqual(20f, b.LaneLength);
             Assert.AreEqual(10f, b.PlayerZoneLength);
-            Assert.AreEqual(20000f, b.CastleHp);
-            Assert.AreEqual(100f, b.CastleDefense.Damage);
+            Assert.AreEqual(35000f, b.CastleHp);
+            Assert.AreEqual(2.5f, b.UnitHpScale);
+            Assert.AreEqual(2.5f, b.UnitAttackScale);
+            Assert.AreEqual(30f, b.CastleDefense.Damage);
             Assert.AreEqual(1.0f, b.CastleDefense.AttackInterval);
             Assert.AreEqual(3.4f, b.CastleDefense.Range, 1e-6);
             Assert.AreEqual(5f, b.StartMana);
@@ -91,7 +93,7 @@ namespace SlotBattle.Core.Tests
             Assert.AreEqual(4, b.WaitingQueueCapacity);
             Assert.AreEqual(4, b.CommanderSkill.ManaCost);
             Assert.AreEqual(2.0f, b.CommanderSkill.Radius);
-            Assert.AreEqual(40f, b.CommanderSkill.Damage);
+            Assert.AreEqual(100f, b.CommanderSkill.Damage);
             Assert.AreEqual(2f, b.CommanderSkill.StunSeconds);
             Assert.AreEqual(30f, b.CommanderSkill.CooldownSeconds);
         }
@@ -100,7 +102,9 @@ namespace SlotBattle.Core.Tests
         public void 스테이지_1부터_3까지_있다()
         {
             CollectionAssert.AreEqual(new[] { 1, 2, 3 }, Data.Stages.Select(s => s.Id).ToArray());
-            CollectionAssert.AreEqual(new[] { 30000f, 16000f, 6000f }, Data.Stages.Select(s => s.EnemyCastleHp).ToArray());
+            // 성 체력은 양쪽 같게(스테이지가 따로 정하지 않음), 적 레벨은 모두 1.0
+            Assert.That(Data.Stages.All(s => s.EnemyCastleHp <= 0f));
+            CollectionAssert.AreEqual(new[] { 1f, 1f, 1f }, Data.Stages.Select(s => s.EnemyStatMultiplier).ToArray());
             foreach (var stage in Data.Stages)
             {
                 Assert.IsNotEmpty(stage.Spawns);

@@ -12,10 +12,38 @@ namespace SlotBattle.Core.Tests
     internal static class TestHelper
     {
         private static GameData _data;
+        private static GameData _rules;
         private static GameData _noCastleFire;
 
         /// <summary>Assets/Data의 실제 JSON.</summary>
         public static GameData Data => _data ?? (_data = DataFiles.Load());
+
+        /// <summary>
+        /// 규칙 테스트용: 실제 JSON에서 유닛 능력치 배율만 1로 둔다.
+        /// 그래서 기대값을 units.json 기준값(설계서 3장 표)으로 바로 쓸 수 있다. 배율 자체는 별도 테스트가 본다.
+        /// </summary>
+        public static GameData RuleData
+        {
+            get
+            {
+                if (_rules == null)
+                {
+                    var battle = LoadBattle();
+                    battle.UnitHpScale = 1f;
+                    battle.UnitAttackScale = 1f;
+                    _rules = new GameData(Data.Units, Data.Slot, battle, Data.Stages);
+                }
+                return _rules;
+            }
+        }
+
+        private static BattleConfig LoadBattle()
+        {
+            string json = File.ReadAllText(Path.Combine(DataFiles.FindDataDirectory(), "battle.json"));
+            return JsonConvert.DeserializeObject<BattleConfig>(json);
+        }
+
+        public static int SpinCost => Data.Slot.SpinCost;
 
         /// <summary>성 포격만 끈 데이터. 성 근처에서 다른 규칙을 떼어 볼 때 쓴다.</summary>
         public static GameData DataWithoutCastleFire
@@ -24,8 +52,9 @@ namespace SlotBattle.Core.Tests
             {
                 if (_noCastleFire == null)
                 {
-                    string json = File.ReadAllText(Path.Combine(DataFiles.FindDataDirectory(), "battle.json"));
-                    var battle = JsonConvert.DeserializeObject<BattleConfig>(json);
+                    var battle = LoadBattle();
+                    battle.UnitHpScale = 1f;
+                    battle.UnitAttackScale = 1f;
                     battle.CastleDefense.Damage = 0f;
                     _noCastleFire = new GameData(Data.Units, Data.Slot, battle, Data.Stages);
                 }
@@ -48,7 +77,7 @@ namespace SlotBattle.Core.Tests
 
         public static BattleSimulation NewSim(StageDef stage = null, ulong seed = 1, IReadOnlyList<string> deck = null)
         {
-            return new BattleSimulation(Data, stage ?? EmptyStage(), deck ?? Deck, seed);
+            return new BattleSimulation(RuleData, stage ?? EmptyStage(), deck ?? Deck, seed);
         }
 
         public static Unit Spawn(BattleSimulation sim, string unitId, Side side, int lane, float y, int tier = 1)
@@ -78,6 +107,7 @@ namespace SlotBattle.Core.Tests
             for (ulong seed = 1; seed < 100000; seed++)
             {
                 var sim = NewSim(seed: seed);
+                sim.SetManaForTest(10);
                 sim.Execute(new SpinCommand());
                 if (predicate(sim.PendingSpin.Symbols.ToArray()))
                 {

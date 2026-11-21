@@ -13,8 +13,8 @@ namespace SlotBattle.Core.Tests
         public void 성_체력은_양쪽_모두_battle_json의_값에서_시작한다()
         {
             var sim = TestHelper.NewSim();
-            Assert.AreEqual(20000f, sim.PlayerCastle.Hp);
-            Assert.AreEqual(20000f, sim.EnemyCastle.Hp);
+            Assert.AreEqual(TestHelper.Data.Battle.CastleHp, sim.PlayerCastle.Hp);
+            Assert.AreEqual(sim.PlayerCastle.Hp, sim.EnemyCastle.Hp, "양쪽 같다");
         }
 
         [Test]
@@ -22,7 +22,7 @@ namespace SlotBattle.Core.Tests
         {
             var sim = TestHelper.NewSim(TestHelper.EmptyStage(enemyCastleHp: 1500f));
             Assert.AreEqual(1500f, sim.EnemyCastle.MaxHp);
-            Assert.AreEqual(20000f, sim.PlayerCastle.MaxHp, "내 성은 그대로");
+            Assert.AreEqual(TestHelper.Data.Battle.CastleHp, sim.PlayerCastle.MaxHp, "내 성은 그대로");
         }
 
         [Test]
